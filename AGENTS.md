@@ -25,11 +25,14 @@
 
 ## Regras operacionais
 
-- Aceite, preparação, recebimento e início são ações independentes, com pré-requisitos explícitos.
+- Aceite, recebimento e início são ações independentes, com pré-requisitos explícitos. O checklist legado de preparação não participa do fluxo nem bloqueia ações.
 - Selecionar uma parada não altera seu estado operacional.
 - Divergências pendentes bloqueiam o recebimento.
-- Resolver uma divergência exige nova conferência do produto.
-- Separar estado operacional de estado de envio.
+- Registrar ou resolver uma divergência desmarca a declaração global. Resolver exige nova conferência de toda a carga, incluindo o produto afetado.
+- Separar a etapa consultada do progresso operacional; revisar etapas não desfaz ações.
+- Usar uma declaração global de conferência do manifesto, com confirmação explícita de recebimento.
+- Acesso real permanece indisponível; identificador não vazio não cria sessão e não envia dados.
+- Separar estado operacional de estado de envio e do salvamento de divergências.
 - Identificar claramente dados e comportamentos demonstrativos.
 - Nunca apresentar confirmação simulada como resposta do servidor.
 
@@ -55,7 +58,7 @@
 
 ## Validação
 
-- Organizar testes por seção nos mesmos pacotes em `app/src/test` e `app/src/androidTest`: `login`, `routes`, `loading` (preparação/recebimento), `history` e `profile`, abaixo de `com.rotalog.delivery`. Novas seções devem seguir o mesmo padrão; evitar classes de revisão que misturem seções independentes.
+- Organizar testes por seção nos mesmos pacotes em `app/src/test` e `app/src/androidTest`: `login`, `routes`, `loading` (etapas/recebimento), `history` e `profile`, abaixo de `com.rotalog.delivery`. Novas seções devem seguir o mesmo padrão; evitar classes de revisão que misturem seções independentes.
 - Durante o desenvolvimento e os ciclos red → green → refactor, executar somente a suíte da seção alterada e os testes dos fluxos/dependências afetados. Não repetir a suíte completa a cada ajuste local.
 - Filtrar unitários com `--tests 'com.rotalog.delivery.<seção>.*'` e instrumentados com `-Pandroid.testInstrumentationRunnerArguments.package=com.rotalog.delivery.<seção>`. Usar os nomes de pacote da tabela em `docs/TESTING.md`, sem os sinais `< >`. Os filtros são independentes; não manter filtros/exclusões na configuração padrão nem enfraquecer cobertura.
 - Mudanças compartilhadas em temas, navegação, modelos ou repositórios exigem todas as seções afetadas. Manter testes de integração entre seções quando necessários ao comportamento verificado.

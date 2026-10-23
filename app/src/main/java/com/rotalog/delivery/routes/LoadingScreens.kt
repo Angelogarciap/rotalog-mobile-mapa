@@ -1,204 +1,226 @@
 package com.rotalog.delivery.routes
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.rotalog.delivery.model.*
 import com.rotalog.delivery.shared.*
 
 @Composable
-fun PreparationScreen(
-    state: RoutesUiState, onCheck: (PreparationCheck, Boolean) -> Unit,
-    onConfirm: () -> Unit, onContinue: () -> Unit, onBack: () -> Unit
+internal fun DepartureFlow(
+    state: RoutesUiState, onAccept: () -> Unit, onShowStops: (String) -> Unit,
+    onStart: () -> Unit, onStep: (DepartureStep) -> Unit, onBack: () -> Unit,
+    onCheck: (Boolean) -> Unit, onOpenIssue: () -> Unit, onDismissIssue: () -> Unit,
+    onEditIssue: (String?, CargoIssueReason?, String) -> Unit, onSubmitIssue: () -> Unit,
+    onResolve: (String) -> Unit, onReceive: () -> Unit
 ) {
-    val route = state.route
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        BackAction("Voltar à rota", onBack)
-        PageTitle("Checklist antes de sair", "Verifique as condições do veículo antes de conferir a carga.")
-        DemoBanner()
-        if (route == null || route.status != RouteStatus.ACCEPTED) {
-            Text("Aceite uma rota atribuída para preparar a saída.")
-            return@Column
-        }
-        SectionCard {
-            Text(route.code, style = MaterialTheme.typography.titleLarge)
-            Text("Etapa 2 de 4 • Checklist inicial")
-        }
-        SectionCard {
-            Icon(AppIcons.Truck, null, tint = MaterialTheme.colorScheme.primary)
-            Text("Renault Master", style = MaterialTheme.typography.titleLarge)
-            StatusBadge("PHB-9A23")
-        }
-        SectionCard {
-            Text("Condições para saída", style = MaterialTheme.typography.titleMedium)
-            Text("${route.checklist.size} de ${PreparationCheck.entries.size} itens verificados", color = MaterialTheme.colorScheme.primary)
-            PreparationCheck.entries.forEach { item ->
-                CheckRow(item.label, item in route.checklist, enabled = !state.loading) { onCheck(item, it) }
-            }
-        }
-        state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (route.prepared) {
-            StatusBadge("Checklist confirmado")
-            Text("O recebimento é confirmado separadamente, após a conferência física no CD.")
-            PrimaryAction("Avançar para conferência", onContinue)
-        } else {
-            Text("Verifique os quatro itens para confirmar o preparo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            PrimaryAction("Confirmar checklist", onConfirm, enabled = !state.loading && route.checklist.containsAll(PreparationCheck.entries))
-        }
-        Text("Ao desmarcar um item, o preparo volta a ficar pendente. O recebimento já confirmado permanece registrado.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-fun ReceiptScreen(
-    state: RoutesUiState, onCheck: (String, Boolean) -> Unit,
-    onReport: (CargoIssue) -> Unit, onResolve: (String) -> Unit,
-    onConfirm: () -> Unit, onBack: () -> Unit, onPreparation: () -> Unit
-) {
-    val route = state.route
-    var reportProduct by rememberSaveable { mutableStateOf<String?>(null) }
-    var resolveProduct by rememberSaveable { mutableStateOf<String?>(null) }
-    var confirmReceipt by rememberSaveable { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        BackAction("Voltar à rota", onBack)
-        PageTitle("Recebimento da carga", "Conferência física na saída do CD")
-        DemoBanner("Demonstração • registro local, sem envio ao CD")
-        if (route == null || route.status != RouteStatus.ACCEPTED) {
-            Text("Esta rota não está disponível para recebimento.")
-            return@Column
-        }
-        LoadingHeader(route, if (route.cargoReceived) 4 else 3, if (route.canStart) "Pronto para partida" else if (route.cargoReceived) "Carga recebida • checklist pendente" else "Conferência na doca")
-        if (!route.prepared) {
-            SectionCard {
-                Text("Checklist pendente", style = MaterialTheme.typography.titleMedium)
-                Text("Confirme as condições do veículo antes de conferir a carga.")
-                PrimaryAction("Revisar checklist", onPreparation)
-            }
-        }
-        if (route.cargoReceived) {
-            SectionCard {
-                StatusBadge("Carga recebida confirmada")
-                Text("${route.collectionVolumes} volumes conferidos no CD.", style = MaterialTheme.typography.titleLarge)
-                Text("A coleta está concluída. A rota só começa após a ação Iniciar rota, na tela Rotas. Esta demonstração não coleta GPS nem gera assinatura digital.")
-                PrimaryAction("Voltar à rota para iniciar", onBack)
-            }
-        }
-        Text("Volumes previstos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("${route.checkedCargo.size} de ${route.manifest.size} produtos conferidos • ${route.collectionVolumes} volumes")
-        LinearProgressIndicator(progress = { if (route.manifest.isEmpty()) 0f else route.checkedCargo.size.toFloat() / route.manifest.size }, modifier = Modifier.fillMaxWidth())
-        route.manifest.forEach { item ->
-            SectionCard {
-                Text(item.description, style = MaterialTheme.typography.titleMedium)
-                Text("${item.quantity} ${item.unit}", style = MaterialTheme.typography.titleLarge)
-                val issue = route.cargoIssues.find { it.productId == item.productId }
-                StatusBadge(when {
-                    issue != null && !issue.resolved -> "⚠ Divergência pendente"
-                    item.productId in route.checkedCargo -> "✓ Conferido"
-                    issue?.resolved == true -> "Aguardando nova conferência"
-                    else -> "○ Pendente de conferência"
-                })
-                CheckRow("Conferir ${item.description}", item.productId in route.checkedCargo,
-                    enabled = !state.loading && route.prepared && !route.cargoReceived && route.openCargoIssues.none { it.productId == item.productId }
-                ) { onCheck(item.productId, it) }
-                if (route.prepared && !route.cargoReceived) {
-                    TextButton(onClick = { reportProduct = item.productId }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Relatar divergência") }
+    val route = state.route ?: return
+    var confirmation by rememberSaveable(route.id) { mutableStateOf<String?>(null) }
+    var resolveProduct by rememberSaveable(route.id) { mutableStateOf<String?>(null) }
+    var originOpen by rememberSaveable(route.id) { mutableStateOf(false) }
+    val step = state.departureStep
+    BackHandler(enabled = step != DepartureStep.ACCEPTANCE && confirmation == null && resolveProduct == null && !originOpen && !state.issueDraft.open && !state.detailsOpen) { onBack() }
+    key(route.id, step) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (step != DepartureStep.ACCEPTANCE) TextButton(onClick = onBack, modifier = Modifier.heightIn(min = 48.dp)) { Text("Voltar") }
+                Column(Modifier.weight(1f)) {
+                    Text(route.code, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Etapa ${step.ordinal + 1} de 3 • ${step.label}", style = MaterialTheme.typography.labelMedium)
                 }
-                route.cargoIssues.find { it.productId == item.productId }?.let { issue ->
-                    Text(if (issue.resolved) "Divergência resolvida no CD • registro demonstrativo" else "Divergência pendente", color = if (issue.resolved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                    Text(issue.reason.label)
-                    if (issue.note.isNotBlank()) Text(issue.note)
-                    if (!issue.resolved && !route.cargoReceived) {
-                        OutlinedButton(onClick = { resolveProduct = item.productId }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Registrar resolução no CD") }
+            }
+            DepartureIndicator(state, onStep)
+            when (step) {
+                DepartureStep.ACCEPTANCE -> {
+                    Text("Sua próxima saída", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    DemoBanner()
+                    SectionCard {
+                        Text(route.date, style = MaterialTheme.typography.titleMedium)
+                        Text("${route.stops.size} paradas • ${route.deliveryVolumes} volumes para entrega")
+                        val origin = route.stops.firstOrNull { it.type == StopType.COLLECTION }
+                        Text("Origem: ${origin?.name.orEmpty()}")
+                        route.stops.firstOrNull { it.type == StopType.RETURN }?.let { Text("Retorno: ${it.name}") }
+                        Text("Renault Master • PHB-9A23")
+                        OutlinedButton(onClick = { originOpen = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Ver dados completos") }
+                        OutlinedButton(onClick = { onShowStops(route.id) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Ver lista de paradas") }
+                    }
+                    if (route.status == RouteStatus.ASSIGNED) PrimaryAction("Aceitar rota", { confirmation = "accept" }, enabled = !state.loading)
+                    else {
+                        StatusBadge("Aceite confirmado")
+                        PrimaryAction("Continuar para recebimento", { onStep(DepartureStep.RECEIPT) })
                     }
                 }
-            }
-        }
-        state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (!route.cargoReceived) {
-            if (route.openCargoIssues.isNotEmpty()) Text("Recebimento bloqueado: resolva as divergências e confira novamente os produtos.", color = MaterialTheme.colorScheme.error)
-            if (!route.prepared) Text("Recebimento bloqueado: confirme o checklist.", color = MaterialTheme.colorScheme.error)
-            if (route.checkedCargo.size < route.manifest.size) Text("Recebimento bloqueado: confira todos os produtos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Marque cada produto somente após conferir todos os volumes físicos. Nenhum item é confirmado automaticamente.", style = MaterialTheme.typography.bodyMedium)
-            PrimaryAction("Confirmar recebimento da carga", { confirmReceipt = true }, enabled = !state.loading && route.canReceive)
-        }
-    }
-    val item = route?.manifest?.find { it.productId == reportProduct }
-    if (item != null) CargoIssueDialog(item, { reportProduct = null }) { issue -> onReport(issue); reportProduct = null }
-    if (resolveProduct != null) AlertDialog(
-        onDismissRequest = { resolveProduct = null }, title = { Text("Divergência resolvida?") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-            route?.manifest?.find { it.productId == resolveProduct }?.let { Text(it.description, style = MaterialTheme.typography.titleMedium) }
-            Text("Confirme apenas após resolver a falta ou avaria com a equipe do CD. O produto deverá ser conferido novamente. Este registro fica somente na demonstração.") } },
-        confirmButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { resolveProduct?.let(onResolve); resolveProduct = null }) { Text("Confirmar resolução") } },
-        dismissButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { resolveProduct = null }) { Text("Cancelar") } }
-    )
-    if (confirmReceipt && route != null) AlertDialog(
-        onDismissRequest = { confirmReceipt = false }, title = { Text("Confirmar recebimento?") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text("Você confirma a conferência física dos ${route.collectionVolumes} volumes? Isso registra a coleta nesta demonstração e mantém a rota aguardando início.") } },
-        confirmButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { confirmReceipt = false; onConfirm() }) { Text("Confirmar carga recebida") } },
-        dismissButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { confirmReceipt = false }) { Text("Cancelar") } }
-    )
-}
-
-@Composable
-private fun LoadingHeader(route: Route, step: Int, label: String) {
-    SectionCard {
-        Text(route.code, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(route.date)
-        StatusBadge("${route.collectionVolumes} volumes")
-        val origin = route.stops.firstOrNull { it.type == StopType.COLLECTION }
-        origin?.let {
-            Text(it.name, style = MaterialTheme.typography.titleMedium)
-            Text(it.address, style = MaterialTheme.typography.bodyMedium)
-            Text(it.reference, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        HorizontalDivider()
-        Text("Etapa $step de 4 • $label", color = MaterialTheme.colorScheme.primary)
-        LinearProgressIndicator(progress = { (step - 1) / 4f }, modifier = Modifier.fillMaxWidth())
-    }
-}
-
-@Composable
-private fun CheckRow(text: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange).padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Checkbox(checked, onCheckedChange = null, enabled = enabled)
-        Text(text, Modifier.weight(1f), color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun CargoIssueDialog(item: StopItem, onDismiss: () -> Unit, onConfirm: (CargoIssue) -> Unit) {
-    var reasonName by rememberSaveable(item.productId) { mutableStateOf(CargoIssueReason.MISSING.name) }
-    var note by rememberSaveable(item.productId) { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss, title = { Text("Registrar divergência") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("${item.description} • ${item.quantity} ${item.unit}", style = MaterialTheme.typography.titleMedium)
-                Text("Informe a equipe do CD. Este registro não envia uma notificação ou foto.")
-                CargoIssueReason.entries.forEach { reason ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected = reasonName == reason.name, role = Role.RadioButton, onClick = { reasonName = reason.name }), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(reasonName == reason.name, onClick = null)
-                        Text(reason.label, Modifier.weight(1f))
+                DepartureStep.RECEIPT -> {
+                    val origin = route.stops.firstOrNull { it.type == StopType.COLLECTION }
+                    Text("${origin?.name.orEmpty()} • ${origin?.reference.orEmpty()}", style = MaterialTheme.typography.labelMedium)
+                    Text("${route.manifest.size} mercadorias • ${route.collectionVolumes} volumes", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Manifest(route)
+                    TextButton(onClick = { originOpen = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ver dados da origem") }
+                    if (route.cargoReceived) StatusBadge("Carga recebida confirmada")
+                    route.cargoIssues.forEach { issue ->
+                        SectionCard {
+                            Text(route.manifest.find { it.productId == issue.productId }?.description.orEmpty(), fontWeight = FontWeight.Bold)
+                            Text(if (issue.resolved) "Resolução registrada • confira novamente a carga, incluindo este produto." else "⚠ Divergência pendente", color = if (issue.resolved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                            Text(issue.reason.label)
+                            if (issue.note.isNotBlank()) Text(issue.note)
+                            if (!issue.resolved && !route.cargoReceived) OutlinedButton(onClick = { resolveProduct = issue.productId }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Registrar resolução") }
+                        }
                     }
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(state.cargoConfirmed, enabled = !state.loading && !route.cargoReceived && route.openCargoIssues.isEmpty(), role = Role.Checkbox, onValueChange = onCheck), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(state.cargoConfirmed, onCheckedChange = null, enabled = !state.loading && !route.cargoReceived && route.openCargoIssues.isEmpty())
+                        Text("Conferi as mercadorias e confirmo que os ${route.collectionVolumes} volumes estão corretos.", Modifier.weight(1f))
+                    }
+                    if (!route.cargoReceived) {
+                        if (route.openCargoIssues.isNotEmpty()) Text("Resolva as divergências e confira novamente toda a carga.", color = MaterialTheme.colorScheme.error)
+                        PrimaryAction("Confirmar recebimento", { confirmation = "receive" }, enabled = !state.loading && route.canReceive)
+                        OutlinedButton(onClick = onOpenIssue, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !state.loading) { Text("Indicar divergência") }
+                    } else PrimaryAction("Continuar para início", { onStep(DepartureStep.START) })
+                    Text("Demonstração • registro local, sem envio ao CD", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                OutlinedTextField(value = note, onValueChange = { if (it.length <= 500) note = it }, label = { Text("Observações (opcional)") }, supportingText = { Text("${note.length}/500 caracteres") }, modifier = Modifier.fillMaxWidth())
+                DepartureStep.START -> {
+                    SectionCard {
+                        StatusBadge("Carga recebida confirmada")
+                        Text("${route.collectionVolumes} volumes • ${route.stops.size} paradas", style = MaterialTheme.typography.titleLarge)
+                        Text("${route.date} • ${route.code}")
+                        Text("A partida exige sua confirmação. O mapa demonstrativo abre após iniciar a rota.")
+                    }
+                    PrimaryAction("Iniciar rota", { confirmation = "start" }, enabled = !state.loading && route.canStart)
+                    DemoBanner()
+                }
             }
-        },
-        confirmButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { onConfirm(CargoIssue(item.productId, CargoIssueReason.valueOf(reasonName), note)) }) { Text("Salvar divergência") } },
-        dismissButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = onDismiss) { Text("Cancelar") } }
-    )
+            state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+    }
+    if (originOpen) PartialDialog({ originOpen = false }) {
+        Text("Dados da rota", style = MaterialTheme.typography.titleLarge)
+        route.stops.filter { it.type != StopType.DELIVERY }.forEach { stop ->
+            Text(stop.name, fontWeight = FontWeight.Bold); Text(stop.address); Text(stop.reference); Text(stop.window); Text(stop.instructions)
+        }
+        TextButton(onClick = { originOpen = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Fechar") }
+    }
+    if (confirmation != null) {
+        val action = confirmation
+        AlertDialog(onDismissRequest = { confirmation = null }, title = { Text(when (action) { "accept" -> "Aceitar ${route.code}?"; "receive" -> "Confirmar recebimento?"; else -> "Iniciar rota demonstrativa?" }) },
+            text = { Text(when (action) {
+                "accept" -> "O aceite confirma a atribuição. Depois, confira e receba a carga antes de iniciar."
+                "receive" -> "Todos os ${route.collectionVolumes} volumes foram conferidos e estão corretos? Confirmar registra a coleta nesta demonstração. A partida continua sendo uma ação separada."
+                else -> "A carga foi recebida. O mapa abrirá na primeira entrega pendente. Esta demonstração não ativa GPS nem envia dados ao servidor."
+            }, Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = { TextButton(onClick = { confirmation = null; when (action) { "accept" -> onAccept(); "receive" -> onReceive(); else -> onStart() } }, modifier = Modifier.heightIn(min = 48.dp)) { Text(when (action) { "accept" -> "Confirmar aceite"; "receive" -> "Confirmar carga recebida"; else -> "Iniciar agora" }) } },
+            dismissButton = { TextButton(onClick = { confirmation = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (action == "accept") "Voltar" else "Cancelar") } })
+    }
+    if (resolveProduct != null) AlertDialog(onDismissRequest = { resolveProduct = null }, title = { Text("Divergência resolvida?") },
+        text = { Text("Confirme somente após resolver com a equipe do CD. Confira novamente toda a carga, incluindo o produto afetado.", Modifier.verticalScroll(rememberScrollState())) },
+        confirmButton = { TextButton(onClick = { resolveProduct?.let(onResolve); resolveProduct = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Confirmar resolução") } },
+        dismissButton = { TextButton(onClick = { resolveProduct = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Cancelar") } })
+    if (state.issueDraft.open) CargoIssueDialog(route, state.issueDraft, onDismissIssue, onEditIssue, onSubmitIssue)
+}
+
+@Composable
+private fun DepartureIndicator(state: RoutesUiState, onStep: (DepartureStep) -> Unit) {
+    val route = state.route ?: return
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        DepartureStep.entries.forEachIndexed { index, step ->
+            val complete = when (step) { DepartureStep.ACCEPTANCE -> route.status != RouteStatus.ASSIGNED; DepartureStep.RECEIPT -> route.cargoReceived; DepartureStep.START -> route.status == RouteStatus.ACTIVE }
+            val operational = when { route.cargoReceived -> DepartureStep.START; route.status != RouteStatus.ASSIGNED -> DepartureStep.RECEIPT; else -> DepartureStep.ACCEPTANCE }
+            Column(Modifier.weight(1f).selectable(selected = state.departureStep == step, enabled = state.canView(step), role = Role.Tab, onClick = { onStep(step) }).heightIn(min = 48.dp).semantics { contentDescription = "Etapa ${index + 1}, ${step.label}${if (complete) ", confirmada" else if (step == operational) ", atual" else ", pendente"}" }, horizontalAlignment = Alignment.CenterHorizontally) {
+                Surface(shape = CircleShape, color = if (complete) MaterialTheme.colorScheme.primary else if (step == operational) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant, contentColor = if (complete) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    border = if (state.departureStep == step) BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface) else null) {
+                    Box(Modifier.sizeIn(minWidth = 32.dp, minHeight = 32.dp).padding(4.dp), contentAlignment = Alignment.Center) { Text("${index + 1}", fontWeight = FontWeight.Bold) }
+                }
+                Text(step.label, style = MaterialTheme.typography.labelMedium)
+            }
+            if (index < 2) HorizontalDivider(Modifier.width(16.dp).padding(top = 16.dp), color = if (complete) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, thickness = 2.dp)
+        }
+    }
+}
+
+@Composable
+private fun Manifest(route: Route) {
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Mercadoria", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text("Quantidade", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            }
+            route.manifest.forEach { item ->
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.description, style = MaterialTheme.typography.bodySmall)
+                        route.cargoIssues.find { it.productId == item.productId }?.let { Text(if (it.resolved) "✓ Resolução registrada" else "⚠ Divergência", style = MaterialTheme.typography.labelSmall, color = if (it.resolved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
+                    }
+                    Text("${item.quantity} ${item.unit}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PartialDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        val view = LocalView.current
+        SideEffect {
+            (view.parent as? DialogWindowProvider)?.window?.apply {
+                setDimAmount(.55f)
+                setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            }
+        }
+        val height = LocalConfiguration.current.screenHeightDp.dp * .85f
+        // This dialog window already resizes for the keyboard; a second IME inset hides content.
+        Surface(Modifier.padding(horizontal = 20.dp).widthIn(max = 420.dp).fillMaxWidth().heightIn(max = height), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+        }
+    }
+}
+
+@Composable
+private fun CargoIssueDialog(route: Route, draft: CargoIssueDraft, onDismiss: () -> Unit, onEdit: (String?, CargoIssueReason?, String) -> Unit, onSubmit: () -> Unit) {
+    var productExpanded by remember { mutableStateOf(false) }
+    var reasonExpanded by remember { mutableStateOf(false) }
+    PartialDialog(onDismiss) {
+        Text("Indicar divergência", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Registro demonstrativo, sem envio ao CD.", style = MaterialTheme.typography.bodySmall)
+        Text("Produto *", style = MaterialTheme.typography.labelLarge)
+        Box {
+            val item = route.manifest.find { it.productId == draft.productId }
+            OutlinedButton(onClick = { productExpanded = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !draft.saving) { Text(item?.let { "${it.description} • ${it.quantity} ${it.unit}" } ?: "Selecionar produto") }
+            DropdownMenu(expanded = productExpanded, onDismissRequest = { productExpanded = false }) {
+                route.manifest.forEach { product -> DropdownMenuItem(text = { Text("${product.description} • ${product.quantity} ${product.unit}") }, onClick = { onEdit(product.productId, draft.reason, draft.description); productExpanded = false }) }
+            }
+        }
+        Text("Motivo *", style = MaterialTheme.typography.labelLarge)
+        Box {
+            OutlinedButton(onClick = { reasonExpanded = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !draft.saving) { Text(draft.reason?.label ?: "Selecionar motivo") }
+            DropdownMenu(expanded = reasonExpanded, onDismissRequest = { reasonExpanded = false }) {
+                CargoIssueReason.entries.forEach { reason -> DropdownMenuItem(text = { Text(reason.label) }, onClick = { onEdit(draft.productId, reason, draft.description); reasonExpanded = false }) }
+            }
+        }
+        OutlinedTextField(value = draft.description, onValueChange = { onEdit(draft.productId, draft.reason, it) }, label = { Text("Descrição (opcional)") }, supportingText = { Text("${draft.description.length}/500 caracteres") }, enabled = !draft.saving, modifier = Modifier.fillMaxWidth())
+        draft.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        PrimaryAction(if (draft.saving) "Registrando…" else "Registrar divergência", onSubmit, enabled = !draft.saving && draft.productId != null && draft.reason != null)
+        TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !draft.saving) { Text("Cancelar") }
+    }
 }

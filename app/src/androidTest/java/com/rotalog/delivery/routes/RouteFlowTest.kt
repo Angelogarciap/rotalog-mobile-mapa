@@ -56,30 +56,23 @@ class RouteFlowTest {
         compose.runOnIdle { assertNull(container.routes.route.value) }
     }
 
-    @Test fun departureShowsFourStepsAndPrioritizesReceiptAfterPreparation() {
-        compose.onNodeWithText("4. Iniciar").performScrollTo().assertIsDisplayed()
+    @Test fun departureShowsThreeStagesAndFutureStagesRemainUnavailable() {
+        compose.onNodeWithContentDescription("Etapa 3, Início, pendente").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Etapa 2, Recebimento, pendente").assertIsNotEnabled()
         scrollClick("Aceitar rota"); click("Confirmar aceite")
-        val route = container.routes.route.value!!
-        runBlocking {
-            PreparationCheck.entries.forEach { container.routes.setPreparationCheck(route.id, it, true) }
-            container.routes.confirmPreparation(route.id)
+        compose.onNodeWithContentDescription("Etapa 2, Recebimento, atual").assertIsSelected()
+        compose.onNodeWithContentDescription("Etapa 3, Início, pendente").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Etapa 1, Aceite, confirmada").performScrollTo().performClick()
+        compose.onNodeWithText("Aceite confirmado").performScrollTo().assertIsDisplayed()
+        scrollClick("Continuar para recebimento")
+        scrollClick("Conferi as mercadorias e confirmo que os 70 volumes estão corretos.")
+        scrollClick("Confirmar recebimento"); click("Confirmar carga recebida")
+        compose.onNodeWithContentDescription("Etapa 3, Início, atual").assertIsSelected()
+        compose.onNodeWithText("Iniciar rota").performScrollTo().assertIsEnabled()
+        compose.runOnIdle {
+            assertFalse(container.routes.route.value!!.prepared)
+            assertEquals(RouteStatus.ACCEPTED, container.routes.route.value!!.status)
         }
-        compose.waitForIdle()
-        compose.onNode(hasText("Conferir carga no CD") and hasClickAction()).performScrollTo().assertIsDisplayed()
-        // Review is secondary once the checklist is confirmed.
-        compose.onNodeWithText("Revisar checklist").assertDoesNotExist()
-        runBlocking {
-            route.manifest.forEach { container.routes.checkCargo(route.id, it.productId, true) }
-            container.routes.confirmReceipt(route.id)
-        }
-        compose.waitForIdle()
-        compose.onNodeWithText("Iniciar rota").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("4. Iniciar").performScrollTo().assertIsDisplayed()
-        runBlocking { container.routes.setPreparationCheck(route.id, PreparationCheck.FUEL, false) }
-        compose.waitForIdle()
-        compose.onNodeWithText("Revisar checklist").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Iniciar rota").assertDoesNotExist()
-        compose.onNodeWithText("Revisar carga recebida").assertExists()
     }
 
     @Test fun explicitAcceptanceLeavesPreparationAndReceiptPending() {

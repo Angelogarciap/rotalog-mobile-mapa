@@ -19,7 +19,8 @@ import com.rotalog.delivery.shared.*
 @Composable
 fun PreparationScreen(
     state: RoutesUiState, onCheck: (PreparationCheck, Boolean) -> Unit,
-    onConfirm: () -> Unit, onContinue: () -> Unit, onBack: () -> Unit
+    onConfirm: () -> Unit, onContinue: () -> Unit, onBack: () -> Unit,
+    routeMap: RouteMap = MapLibreRouteMap
 ) {
     val route = state.route
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -30,6 +31,9 @@ fun PreparationScreen(
             Text("Aceite uma rota atribuída para preparar a saída.")
             return@Column
         }
+
+        MapaPercurso(routeMap, route)
+
         SectionCard {
             Text(route.code, style = MaterialTheme.typography.titleLarge)
             Text("Etapa 2 de 4 • Checklist inicial")

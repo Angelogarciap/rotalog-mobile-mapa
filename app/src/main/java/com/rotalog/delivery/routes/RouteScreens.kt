@@ -15,6 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rotalog.delivery.model.*
 import com.rotalog.delivery.shared.*
+import androidx.compose.ui.draw.clip
+
 
 @Composable
 fun RoutesScreen(
@@ -31,7 +33,7 @@ fun RoutesScreen(
     onStart: () -> Unit,
     onCopy: (Stop) -> String = { "" },
     navigationOpen: Boolean = false,
-    routeMap: RouteMap = DemonstrationRouteMap,
+    routeMap: RouteMap =MapLibreRouteMap ,
     onProfile: () -> Unit = {}
 ) {
     val detailsStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
@@ -50,7 +52,8 @@ fun RoutesScreen(
             }
             state.route.status == RouteStatus.ACTIVE -> ActiveRoute(state, onSelectStop, onDetailsChange, onShowStops, onNextStop, routeMap)
             else -> {
-                AssignedRoute(state, onAccept, onShowStops, onPreparation, onReceipt, onStart)
+                AssignedRoute(state, onAccept, onShowStops, onPreparation, onReceipt, onStart, routeMap)
+
             }
         }
     }
@@ -62,7 +65,7 @@ fun RoutesScreen(
 }
 
 @Composable
-private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStops: (String) -> Unit, onPreparation: (String) -> Unit, onReceipt: (String) -> Unit, onStart: () -> Unit) {
+private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStops: (String) -> Unit, onPreparation: (String) -> Unit, onReceipt: (String) -> Unit, onStart: () -> Unit, routeMap: RouteMap) {
     val route = state.route ?: return
     var confirm by rememberSaveable { mutableStateOf(false) }
     var confirmStart by rememberSaveable { mutableStateOf(false) }
@@ -70,6 +73,7 @@ private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStop
         Text("Rotas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
         Text(if (route.status == RouteStatus.ASSIGNED) "Confira sua próxima saída." else "Acompanhe as etapas antes da partida.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         DemoBanner()
+        MapaPercurso(routeMap, route)
         SectionCard {
             Text(route.code, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(AppIcons.Calendar, null); Text(route.date) }
@@ -120,7 +124,7 @@ private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStop
     }
     if (confirmStart) AlertDialog(
         onDismissRequest = { confirmStart = false }, title = { Text("Iniciar rota demonstrativa?") },
-        text = { Text(modifier = Modifier.verticalScroll(rememberScrollState()), text = "A carga foi recebida e o checklist confirmado. O mapa abrirá na primeira entrega pendente. Esta demonstração não ativa GPS nem envia dados ao servidor.") },
+        text = { Text(modifier = Modifier.verticalScroll(rememberScrollState()), text = "A carga foi recebida e o checklist confirmado. O mapa abrirá na primeira entrega pendente. Esta demonstração usa o GPS só para mostrar sua posição no mapa e não envia dados ao servidor.") },
         confirmButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { confirmStart = false; onStart() }) { Text("Iniciar agora") } },
         dismissButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { confirmStart = false }) { Text("Cancelar") } }
     )

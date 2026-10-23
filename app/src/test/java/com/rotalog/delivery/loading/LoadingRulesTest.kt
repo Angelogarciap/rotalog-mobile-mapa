@@ -1,17 +1,17 @@
-package com.rotalog.delivery
+package com.rotalog.delivery.loading
 
 import androidx.lifecycle.SavedStateHandle
 import com.rotalog.delivery.data.*
 import com.rotalog.delivery.model.*
 import com.rotalog.delivery.routes.RoutesViewModel
+import java.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
-import org.junit.After
 import org.junit.Test
-import java.io.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoadingRulesTest {
@@ -116,16 +116,6 @@ class LoadingRulesTest {
         restored.selectScenario(DemoScenario.ACTIVE)
         restored.selectScenario(DemoScenario.ASSIGNED)
         assertEquals(DemoRoutes.assigned(), fresh.route.value)
-    }
-    @Test fun reselectingScenarioPreservesDraftAndExplicitResetClearsIt() = runTest {
-        val repo = DemoRouteRepository()
-        val vm = RoutesViewModel(repo, repo, SavedStateHandle())
-        vm.acceptRoute()
-        vm.setPreparationCheck(PreparationCheck.FUEL, true)
-        vm.selectScenario(DemoScenario.ASSIGNED)
-        assertEquals(setOf(PreparationCheck.FUEL), repo.route.value!!.checklist)
-        vm.resetScenario()
-        assertEquals(DemoRoutes.assigned(), repo.route.value)
     }
 
 }

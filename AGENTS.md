@@ -55,13 +55,18 @@
 
 ## Validação
 
-- Executar build, testes unitários e lint nas mudanças de código:
+- Organizar testes por seção nos mesmos pacotes em `app/src/test` e `app/src/androidTest`: `login`, `routes`, `loading` (preparação/recebimento), `history` e `profile`, abaixo de `com.rotalog.delivery`. Novas seções devem seguir o mesmo padrão; evitar classes de revisão que misturem seções independentes.
+- Durante o desenvolvimento e os ciclos red → green → refactor, executar somente a suíte da seção alterada e os testes dos fluxos/dependências afetados. Não repetir a suíte completa a cada ajuste local.
+- Filtrar unitários com `--tests 'com.rotalog.delivery.<seção>.*'` e instrumentados com `-Pandroid.testInstrumentationRunnerArguments.package=com.rotalog.delivery.<seção>`. Usar os nomes de pacote da tabela em `docs/TESTING.md`, sem os sinais `< >`. Os filtros são independentes; não manter filtros/exclusões na configuração padrão nem enfraquecer cobertura.
+- Mudanças compartilhadas em temas, navegação, modelos ou repositórios exigem todas as seções afetadas. Manter testes de integração entre seções quando necessários ao comportamento verificado.
+- Ao finalizar a mudança, executar a suíte completa **sem filtros**, uma vez, para detectar efeitos colaterais antes da entrega ou commit. Repetir somente após novas alterações, falhas ou dúvidas não resolvidas. Comandos e catálogo em `docs/TESTING.md`.
+- Na validação final, executar build, todos os testes unitários e lint:
 
   ```bash
   ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
   ```
 
-- Para alterações de interface ou fluxo, executar os testes instrumentados:
+- Na validação final de alterações de interface, fluxo ou organização das suítes instrumentadas, executar todos os testes instrumentados:
 
   ```bash
   ./gradlew :app:connectedDebugAndroidTest

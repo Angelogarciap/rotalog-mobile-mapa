@@ -68,8 +68,7 @@ fun RotalogApp(container: AppContainer) {
             if (loginState.exploringDemo) {
                 AppNavigation(container, settings, theme!!)
             } else {
-                LoginScreen(loginState, login::setEmail, login::setPassword, login::togglePassword,
-                    login::submit, login::recoverPassword, login::exploreDemo)
+                LoginScreen(loginState, login::setIdentifier, login::submit, login::exploreDemo)
             }
         }
     }
@@ -126,23 +125,24 @@ private fun AppNavigation(container: AppContainer, settings: SettingsViewModel, 
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                        })
+                        }, onStep = vm::selectDepartureStep, onBackStep = vm::previousDepartureStep,
+                        onCargoConfirmation = vm::setCargoConfirmation, onOpenIssue = vm::openCargoIssue,
+                        onDismissIssue = vm::dismissCargoIssue, onEditIssue = vm::editCargoIssue,
+                        onSubmitIssue = vm::submitCargoIssue, onResolveIssue = vm::resolveCargoIssue, onReceive = vm::confirmReceipt)
                 }
                 composable("preparation/{routeId}", arguments = listOf(navArgument("routeId") { type = NavType.StringType })) { backStack ->
                     val vm = routeViewModel(nav, backStack, container)
                     val state by vm.uiState.collectAsStateWithLifecycle()
-                    val validState = state.copy(route = state.route?.takeIf { it.id == backStack.arguments?.getString("routeId") })
-                    PreparationScreen(validState, vm::setPreparationCheck, vm::confirmPreparation,
-                        { nav.navigate("receipt/${state.route?.id}") }, { nav.popBackStack("route", false) })
+                    LegacyDepartureRedirect(state, backStack.arguments?.getString("routeId"), vm::openLegacyDeparture) {
+                        nav.navigate("route") { popUpTo("route") { inclusive = true }; launchSingleTop = true }
+                    }
                 }
                 composable("receipt/{routeId}", arguments = listOf(navArgument("routeId") { type = NavType.StringType })) { backStack ->
                     val vm = routeViewModel(nav, backStack, container)
                     val state by vm.uiState.collectAsStateWithLifecycle()
-                    val validState = state.copy(route = state.route?.takeIf { it.id == backStack.arguments?.getString("routeId") })
-                    ReceiptScreen(validState, vm::checkCargo, vm::reportCargoIssue, vm::resolveCargoIssue, vm::confirmReceipt,
-                        { nav.popBackStack("route", false) }, {
-                            nav.navigate("preparation/${state.route?.id}") { popUpTo("route") }
-                        })
+                    LegacyDepartureRedirect(state, backStack.arguments?.getString("routeId"), vm::openLegacyDeparture) {
+                        nav.navigate("route") { popUpTo("route") { inclusive = true }; launchSingleTop = true }
+                    }
                 }
                 composable("stops/{routeId}", arguments = listOf(navArgument("routeId") { type = NavType.StringType })) { backStack ->
                     val vm = routeViewModel(nav, backStack, container)

@@ -120,16 +120,16 @@ class RouteRulesTest {
         val repo = DemoRouteRepository()
         var calls = 0
         val slow = object : com.rotalog.delivery.data.RouteRepository by repo {
-            override suspend fun confirmPreparation(routeId: String): RouteCommandResult {
+            override suspend fun setCargoConfirmation(routeId: String, checked: Boolean): RouteCommandResult {
                 calls++
                 kotlinx.coroutines.delay(100)
-                return repo.confirmPreparation(routeId)
+                return repo.setCargoConfirmation(routeId, checked)
             }
         }
         val vm = RoutesViewModel(slow, repo, SavedStateHandle())
         val original = repo.route.value
-        vm.confirmPreparation()
-        vm.confirmPreparation()
+        vm.setCargoConfirmation(true)
+        vm.setCargoConfirmation(true)
         assertEquals(1, calls)
         assertTrue(vm.uiState.value.loading)
         assertEquals(original, vm.uiState.value.route)

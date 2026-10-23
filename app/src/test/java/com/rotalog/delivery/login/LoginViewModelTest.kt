@@ -4,57 +4,58 @@ import androidx.lifecycle.SavedStateHandle
 import org.junit.Assert.*
 import org.junit.Test
 
-/** Supplementary boundary and state checks for the flow driven by instrumented TDD. */
 class LoginViewModelTest {
-    @Test fun malformedEmailsAndBlankPasswordsAreRejected() {
-        for (email in listOf("", "nome@", "a@b", "a b@exemplo.com", "a@-dominio.com", "a@b..com")) {
+    @Test fun identifiersNeedNoPasswordOrEmailSyntax() {
+        for (identifier in listOf("DRV-9082", "9082", "(92) 99999-9999", "  DRV-9082  ")) {
             val vm = LoginViewModel(SavedStateHandle())
-            vm.setEmail(email)
-            vm.setPassword("   ")
+            vm.setIdentifier(identifier)
+            repeat(2) { vm.submit() }
+            assertNull(vm.uiState.value.identifierError)
+            assertEquals("Acesso indisponível nesta versão. Nenhum dado foi enviado.", vm.uiState.value.message)
+            assertFalse(vm.uiState.value.exploringDemo)
+        }
+    }
+
+    @Test fun emptyOrWhitespaceIdentifierIsRejectedWithoutCreatingSession() {
+        for (identifier in listOf("", "   ", "\t\n")) {
+            val vm = LoginViewModel(SavedStateHandle())
+            vm.setIdentifier(identifier)
             vm.submit()
-            assertEquals(email, "Informe um e-mail válido.", vm.uiState.value.emailError)
-            assertEquals("Digite sua senha.", vm.uiState.value.passwordError)
+            assertEquals("Informe seu identificador, matrícula ou telefone.", vm.uiState.value.identifierError)
             assertNull(vm.uiState.value.message)
             assertFalse(vm.uiState.value.exploringDemo)
         }
     }
-    @Test fun validFormWithSurroundingEmailSpacesNeverAuthenticates() {
-        val vm = LoginViewModel(SavedStateHandle())
-        vm.setEmail("  nome+operacao@sub.exemplo.com.br  ")
-        vm.setPassword(" segredo ")
-        repeat(2) { vm.submit() }
-        assertNull(vm.uiState.value.emailError)
-        assertNull(vm.uiState.value.passwordError)
-        assertEquals(" segredo ", vm.uiState.value.password)
-        assertEquals("Autenticação indisponível nesta versão. Nenhum dado foi enviado.", vm.uiState.value.message)
-        assertFalse(vm.uiState.value.exploringDemo)
-    }
-    @Test fun editingClearsOnlyRelevantErrorAndFeedback() {
+
+    @Test fun editingClearsErrorAndFeedback() {
         val vm = LoginViewModel(SavedStateHandle())
         vm.submit()
-        vm.setEmail("nome@exemplo.com")
-        assertNull(vm.uiState.value.emailError)
-        assertNotNull(vm.uiState.value.passwordError)
-        vm.recoverPassword()
-        vm.setPassword("segredo")
-        assertNull(vm.uiState.value.passwordError)
+        vm.setIdentifier("9082")
+        assertNull(vm.uiState.value.identifierError)
+        vm.submit()
+        assertNotNull(vm.uiState.value.message)
+        vm.setIdentifier("DRV-9082")
         assertNull(vm.uiState.value.message)
     }
-    @Test fun restoredStateExcludesPasswordAndDemoEntryClearsCredentials() {
+
+    @Test fun taskStateRestoresIdentifierAndSeparateDemoChoice() {
         val saved = SavedStateHandle()
         val vm = LoginViewModel(saved)
-        vm.setEmail("nome@exemplo.com")
-        vm.setPassword("segredo")
-        vm.togglePassword()
+        vm.setIdentifier("(92) 99999-9999")
         val restored = LoginViewModel(saved)
-        assertEquals("nome@exemplo.com", restored.uiState.value.email)
-        assertEquals("", restored.uiState.value.password)
-        assertFalse(restored.uiState.value.passwordVisible)
-        assertEquals(setOf("loginEmail"), saved.keys())
+        assertEquals("(92) 99999-9999", restored.uiState.value.identifier)
+        assertEquals(setOf("loginIdentifier"), saved.keys())
+        assertFalse(restored.uiState.value.exploringDemo)
         vm.exploreDemo()
         assertTrue(vm.uiState.value.exploringDemo)
-        assertEquals("", vm.uiState.value.password)
-        assertFalse(vm.uiState.value.passwordVisible)
+        assertNull(vm.uiState.value.message)
         assertTrue(LoginViewModel(saved).uiState.value.exploringDemo)
+    }
+
+    @Test fun legacyEmailDoesNotBecomeAnIdentifier() {
+        val vm = LoginViewModel(SavedStateHandle(mapOf("loginEmail" to "antigo@exemplo.com")))
+        assertEquals("", vm.uiState.value.identifier)
+        vm.submit()
+        assertNotNull(vm.uiState.value.identifierError)
     }
 }

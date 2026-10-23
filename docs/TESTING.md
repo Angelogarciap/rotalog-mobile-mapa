@@ -4,7 +4,7 @@ Os testes unitários (`app/src/test`) e instrumentados (`app/src/androidTest`) u
 
 | Seção | Sufixo do pacote | Unitários | Instrumentados |
 | --- | --- | --- | --- |
-| Login | `login` | `LoginViewModelTest` | `LoginFlowTest` |
+| Login | `login` | `LoginViewModelTest` | `LoginFlowTest`, `LoginAccessibilityTest` |
 | Rotas e paradas | `routes` | `RouteRulesTest` | `RouteFlowTest`, `RouteReviewTest`, `StopDetailsTest` |
 | Etapas e recebimento | `loading` | `LoadingRulesTest`, `DepartureStateTest` | `LoadingFlowTest`, `LegacyDepartureRedirectTest` |
 | Histórico | `history` | `HistoryRulesTest` | `HistoryFlowTest`, `HistoryConsultationTest` |
@@ -56,7 +56,7 @@ Use os requisitos de ambiente do README. Para interface/fluxo, valide as seçõe
 
 ## Organização da cobertura
 
-- Login cobre identificador vazio/alfanumérico/numérico/telefone, indisponibilidade sem sessão, entrada demonstrativa separada, restauração e revisão com teclado.
+- Login cobre identificador vazio/alfanumérico/numérico/telefone, indisponibilidade sem sessão, entrada demonstrativa separada, restauração, revisão com teclado, contraste de textos de pelo menos 4,5:1 nos dois temas, rótulo fixo e ordem de foco com Tab/Shift+Tab.
 - Rotas conserva aceite, mapa/lista, seleção, painel, volumes/progresso e ações externas. Dados demonstrativos e tema são preparados diretamente pelos repositórios/preferências nos testes dessa seção.
 - Etapas/recebimento cobre navegação entre três etapas, declaração global, divergências, nova conferência, recebimento, partida, migração e restauração; a partida permanece aqui como integração do fluxo de carregamento.
 - Histórico tem suas próprias verificações do registro concluído, progresso e isolamento da rota atual, além da revisão nos dois temas.

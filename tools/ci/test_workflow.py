@@ -31,6 +31,14 @@ class AndroidWorkflowTest(unittest.TestCase):
         self.assertIn("workflow_dispatch", events)
         self.assertIn("pull_request", events)
 
+    def test_android_sdk_setup_does_not_request_removed_tools_package(self):
+        setup = next(s for s in self.steps
+                     if s.get("uses", "").startswith("android-actions/setup-android@"))
+        # setup-android v3 usa `tools platform-tools` quando não há configuração.
+        packages = setup.get("with", {}).get("packages", "tools platform-tools").split()
+        self.assertNotIn("tools", packages, "O pacote legado tools foi removido do SDK")
+        self.assertIn("platform-tools", packages)
+
     def test_apk_download_is_separate_and_requires_successful_checks(self):
         apks = self.uploads_for("app/build/outputs/apk/debug/app-debug.apk")
         self.assertEqual(len(apks), 1, "Disponibilizar o APK em um artifact próprio")

@@ -37,11 +37,22 @@ não adiciona dependência ao aplicativo. O workflow também executa esses contr
 
 ## Limitações
 
-A execução remota e o download real pelo GitHub Actions não foram realizados:
-as mudanças ainda são locais, sem commit ou push. O teste de contrato verifica
-a configuração declarada; não simula os servidores do GitHub. A primeira execução
-remota deve confirmar instalação do SDK, acesso às dependências e upload.
+Na validação inicial, a execução remota e o download real pelo GitHub Actions
+não haviam sido realizados. O teste de contrato verifica a configuração
+declarada; não simula os servidores do GitHub.
 
 Não executados testes instrumentados ou revisão visual em emulador: a mudança
 é restrita à CI e não altera interface, fluxo do aplicativo ou suítes Android.
 As alterações preexistentes em `.idea/` foram preservadas.
+
+## Correção da instalação do SDK
+
+O job `120692827904` da execução `40035198023` falhou ao executar
+`sdkmanager tools`: `Warning: Failed to find package 'tools'`. A v3 de
+`android-actions/setup-android` usa `tools platform-tools` por padrão. O pacote
+`tools` foi removido do repositório do Android. Definido `packages: platform-tools`
+explicitamente; os pacotes do projeto continuam na etapa seguinte.
+
+Regressão: antes da correção, o novo teste falhou com `'tools' unexpectedly found
+in ['tools', 'platform-tools']`; após a configuração explícita, os quatro testes
+de contrato passaram. Não foi necessária refatoração adicional.

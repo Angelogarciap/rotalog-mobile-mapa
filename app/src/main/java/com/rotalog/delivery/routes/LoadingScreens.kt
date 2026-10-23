@@ -182,9 +182,15 @@ private fun Manifest(route: Route) {
 private fun PartialDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val view = LocalView.current
-        SideEffect { (view.parent as? DialogWindowProvider)?.window?.setDimAmount(.55f) }
+        SideEffect {
+            (view.parent as? DialogWindowProvider)?.window?.apply {
+                setDimAmount(.55f)
+                setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            }
+        }
         val height = LocalConfiguration.current.screenHeightDp.dp * .85f
-        Surface(Modifier.padding(horizontal = 20.dp).widthIn(max = 420.dp).fillMaxWidth().heightIn(max = height).imePadding(), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
+        // This dialog window already resizes for the keyboard; a second IME inset hides content.
+        Surface(Modifier.padding(horizontal = 20.dp).widthIn(max = 420.dp).fillMaxWidth().heightIn(max = height), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
         }
     }

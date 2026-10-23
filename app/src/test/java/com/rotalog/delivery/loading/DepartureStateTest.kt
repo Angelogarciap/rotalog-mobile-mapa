@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.rotalog.delivery.data.*
 import com.rotalog.delivery.model.*
 import com.rotalog.delivery.routes.*
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -60,6 +61,75 @@ class DepartureStateTest {
         assertEquals(DepartureStep.START, vm.uiState.value.departureStep)
         assertTrue(vm.openLegacyDeparture(repo.route.value!!.id))
         assertEquals(DepartureStep.RECEIPT, vm.uiState.value.departureStep)
+    }
+    @Test fun resettingSameRouteCancelsPendingAcceptanceBeforeRepositoryMutation() = runTest {
+        val repo = DemoRouteRepository()
+        val release = CompletableDeferred<Unit>()
+        val slow = object : RouteRepository by repo {
+            override suspend fun acceptRoute(routeId: String): AcceptRouteResult {
+                release.await()
+                return repo.acceptRoute(routeId)
+            }
+        }
+        val vm = RoutesViewModel(slow, repo, SavedStateHandle())
+        vm.acceptRoute()
+        assertTrue(vm.uiState.value.loading)
+        vm.resetScenario()
+        assertFalse(vm.uiState.value.loading)
+        release.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(DemoRoutes.assigned(), repo.route.value)
+        assertEquals(DepartureStep.ACCEPTANCE, vm.uiState.value.departureStep)
+        assertFalse(vm.uiState.value.loading)
+        assertNull(vm.uiState.value.message)
+        assertNull(vm.uiState.value.error)
+    }
+    @Test fun resettingSameRouteCancelsPendingCargoReceiptAndIssueBeforeRepositoryMutation() = runTest {
+        for (operation in listOf("cargo", "receipt", "issue")) {
+            val repo = DemoRouteRepository()
+            val release = CompletableDeferred<Unit>()
+            val slow = object : RouteRepository by repo {
+                override suspend fun setCargoConfirmation(routeId: String, checked: Boolean): RouteCommandResult {
+                    if (operation == "cargo") release.await()
+                    return repo.setCargoConfirmation(routeId, checked)
+                }
+                override suspend fun confirmReceipt(routeId: String): RouteCommandResult {
+                    if (operation == "receipt") release.await()
+                    return repo.confirmReceipt(routeId)
+                }
+                override suspend fun reportCargoIssue(routeId: String, issue: CargoIssue): RouteCommandResult {
+                    if (operation == "issue") release.await()
+                    return repo.reportCargoIssue(routeId, issue)
+                }
+            }
+            val vm = RoutesViewModel(slow, repo, SavedStateHandle())
+            vm.acceptRoute()
+            when (operation) {
+                "cargo" -> vm.setCargoConfirmation(true)
+                "receipt" -> { vm.setCargoConfirmation(true); vm.confirmReceipt() }
+                "issue" -> {
+                    vm.openCargoIssue(); vm.editCargoIssue("oleo", CargoIssueReason.DAMAGED, "Rascunho antigo")
+                    vm.submitCargoIssue()
+                }
+            }
+            vm.resetScenario()
+            assertFalse(vm.uiState.value.loading)
+            assertFalse(vm.uiState.value.issueDraft.saving)
+            // A new operation uses the same routeId. The old command must not mutate it.
+            val id = repo.route.value!!.id
+            repo.acceptRoute(id)
+            if (operation == "receipt") repo.setCargoConfirmation(id, true)
+            val expected = repo.route.value
+            release.complete(Unit)
+            advanceUntilIdle()
+            assertEquals("Comando antigo: $operation", expected, repo.route.value)
+            assertFalse(vm.uiState.value.loading)
+            assertFalse(vm.uiState.value.issueDraft.saving)
+            assertFalse(vm.uiState.value.issueDraft.open)
+            assertNull(vm.uiState.value.issueDraft.productId)
+            assertNull(vm.uiState.value.message)
+            assertNull(vm.uiState.value.error)
+        }
     }
     @Test fun delayedFailureFromPreviousScenarioDoesNotPolluteTheNewOne() = runTest {
         val repo = DemoRouteRepository()

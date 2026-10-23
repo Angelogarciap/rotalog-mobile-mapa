@@ -133,18 +133,14 @@ private fun AppNavigation(container: AppContainer, settings: SettingsViewModel, 
                 composable("preparation/{routeId}", arguments = listOf(navArgument("routeId") { type = NavType.StringType })) { backStack ->
                     val vm = routeViewModel(nav, backStack, container)
                     val state by vm.uiState.collectAsStateWithLifecycle()
-                    LaunchedEffect(state.route?.id) {
-                        if (state.loading && state.route == null) return@LaunchedEffect
-                        backStack.arguments?.getString("routeId")?.let(vm::openLegacyDeparture)
+                    LegacyDepartureRedirect(state, backStack.arguments?.getString("routeId"), vm::openLegacyDeparture) {
                         nav.navigate("route") { popUpTo("route") { inclusive = true }; launchSingleTop = true }
                     }
                 }
                 composable("receipt/{routeId}", arguments = listOf(navArgument("routeId") { type = NavType.StringType })) { backStack ->
                     val vm = routeViewModel(nav, backStack, container)
                     val state by vm.uiState.collectAsStateWithLifecycle()
-                    LaunchedEffect(state.route?.id) {
-                        if (state.loading && state.route == null) return@LaunchedEffect
-                        backStack.arguments?.getString("routeId")?.let(vm::openLegacyDeparture)
+                    LegacyDepartureRedirect(state, backStack.arguments?.getString("routeId"), vm::openLegacyDeparture) {
                         nav.navigate("route") { popUpTo("route") { inclusive = true }; launchSingleTop = true }
                     }
                 }

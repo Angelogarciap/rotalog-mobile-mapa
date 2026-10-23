@@ -13,7 +13,7 @@ O identificador usa a nova chave `loginIdentifier` no `SavedStateHandle`, com re
 1. Antes de alterar produção, adicionado `identifiersNeedNoPasswordOrEmailSyntax` ao teste unitário existente, usando provisoriamente o setter antigo para compilar sobre a API real. Execução filtrada falhou por asserção: esperado `Acesso indisponível nesta versão. Nenhum dado foi enviado.`, observado `null`, pois a validação anterior exigia e-mail e senha.
 2. Antes de alterar produção, adicionado `driverAccessHasOneIdentifierFieldAndNoPasswordControls` aos instrumentados. Execução isolada compilou e falhou por `assertExists`: nenhum nó com `Acesso do motorista`, confirmando a ausência da nova composição.
 
-Logs e XMLs reais ficam em `app/build/review/access-login/`, fora do Git. Falhas de ambiente/compilação não foram contadas como red.
+Logs e XMLs reais ficam em `app/build/review/access-cargo/login-evidence/`, fora do Git. Falhas de ambiente/compilação não foram contadas como red.
 
 ## Green e refactor
 

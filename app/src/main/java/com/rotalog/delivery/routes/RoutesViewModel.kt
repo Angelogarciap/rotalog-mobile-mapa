@@ -8,6 +8,7 @@ import com.rotalog.delivery.data.RouteRepository
 import com.rotalog.delivery.model.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 class RoutesViewModel(
     private val repository: RouteRepository,
@@ -28,6 +29,7 @@ class RoutesViewModel(
     private val issueSaving = MutableStateFlow(false)
     private val issueError = MutableStateFlow<String?>(null)
     private var generation = 0
+    private var pendingOperation: Job? = null
 
     init {
         val restored = savedState.get<String>("scenario")?.let { value -> DemoScenario.entries.find { it.name == value } }
@@ -40,7 +42,7 @@ class RoutesViewModel(
         savedState["departureFlowVersion"] = 2
         // An accepted demo is restorable, but accepting never receives cargo or starts the route.
         if (savedState.get<Boolean>("accepted") == true && demo.scenario.value == DemoScenario.ASSIGNED) {
-            viewModelScope.launch { repository.route.value?.let { repository.acceptRoute(it.id) } }
+            pendingOperation = viewModelScope.launch { repository.route.value?.let { repository.acceptRoute(it.id) } }
         }
         savedState.get<String>("sync")?.let { value -> SyncStatus.entries.find { it.name == value }?.let(demo::simulateSync) }
         if (detailsOpen.value) {
@@ -58,7 +60,7 @@ class RoutesViewModel(
                     closeDetails()
                     savedState["departureStep"] = DepartureStep.ACCEPTANCE.name
                     clearIssueDraft()
-                    generation++
+                    invalidatePendingOperation()
                 }
                 routeId = route?.id
                 previousStatus = route?.status
@@ -125,14 +127,14 @@ class RoutesViewModel(
         val id = repository.route.value?.id ?: return
         val commandGeneration = generation
         issueSaving.value = true
-        viewModelScope.launch {
+        pendingOperation = viewModelScope.launch {
             try {
                 val result = repository.reportCargoIssue(id, CargoIssue(product, reason, draftNote.value))
                 if (generation != commandGeneration) return@launch
                 if (result is RouteCommandResult.Rejected) issueError.value = result.reason
                 else { saveSnapshot(); clearIssueDraft(); message.value = "Divergência salva localmente. Resolva com a equipe do CD antes de receber." }
             } catch (_: java.io.IOException) { if (generation == commandGeneration) issueError.value = "Não foi possível registrar. Tente novamente." }
-            finally { issueSaving.value = false }
+            finally { if (generation == commandGeneration) issueSaving.value = false }
         }
     }
     private fun saveSnapshot() {
@@ -156,8 +158,16 @@ class RoutesViewModel(
     fun selectScenario(scenario: DemoScenario) {
         if (scenario != demo.scenario.value) resetToScenario(scenario)
     }
-    private fun resetToScenario(scenario: DemoScenario) {
+    private fun invalidatePendingOperation() {
         generation++
+        // Cancel before replacing the fixture: a suspended command may otherwise target the same routeId.
+        pendingOperation?.cancel()
+        pendingOperation = null
+        busy.value = false
+        issueSaving.value = false
+    }
+    private fun resetToScenario(scenario: DemoScenario) {
+        invalidatePendingOperation()
         savedState["departureStep"] = DepartureStep.ACCEPTANCE.name
         clearIssueDraft()
         savedState["scenario"] = scenario.name
@@ -180,7 +190,7 @@ class RoutesViewModel(
         val id = repository.route.value?.id ?: return
         busy.value = true
         val commandGeneration = generation
-        viewModelScope.launch {
+        pendingOperation = viewModelScope.launch {
             try {
                 val result = repository.acceptRoute(id)
                 if (generation != commandGeneration) return@launch
@@ -197,7 +207,7 @@ class RoutesViewModel(
                 }
             } catch (exception: java.io.IOException) {
                 if (generation == commandGeneration) error.value = "Não foi possível aceitar a rota. Tente novamente."
-            } finally { busy.value = false }
+            } finally { if (generation == commandGeneration) busy.value = false }
         }
     }
     private fun command(success: String? = null, afterSuccess: () -> Unit = {}, action: suspend (String) -> RouteCommandResult) {
@@ -207,7 +217,7 @@ class RoutesViewModel(
         message.value = null
         busy.value = true
         val commandGeneration = generation
-        viewModelScope.launch {
+        pendingOperation = viewModelScope.launch {
             try {
                 val result = action(id)
                 if (generation != commandGeneration) return@launch
@@ -221,7 +231,7 @@ class RoutesViewModel(
                     }
                 }
             } catch (_: java.io.IOException) { if (generation == commandGeneration) error.value = "Não foi possível salvar. Tente novamente." }
-            finally { busy.value = false }
+            finally { if (generation == commandGeneration) busy.value = false }
         }
     }
     fun setPreparationCheck(check: PreparationCheck, checked: Boolean) = command { repository.setPreparationCheck(it, check, checked) }

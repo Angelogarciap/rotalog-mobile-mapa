@@ -10,6 +10,7 @@ interface RouteRepository {
     suspend fun acceptRoute(routeId: String): AcceptRouteResult
     suspend fun setPreparationCheck(routeId: String, check: PreparationCheck, checked: Boolean): RouteCommandResult
     suspend fun confirmPreparation(routeId: String): RouteCommandResult
+    suspend fun setCargoConfirmation(routeId: String, checked: Boolean): RouteCommandResult
     suspend fun checkCargo(routeId: String, productId: String, checked: Boolean): RouteCommandResult
     suspend fun reportCargoIssue(routeId: String, issue: CargoIssue): RouteCommandResult
     suspend fun resolveCargoIssue(routeId: String, productId: String): RouteCommandResult

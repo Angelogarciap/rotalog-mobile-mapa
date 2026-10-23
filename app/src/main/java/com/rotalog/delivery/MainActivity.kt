@@ -68,8 +68,7 @@ fun RotalogApp(container: AppContainer) {
             if (loginState.exploringDemo) {
                 AppNavigation(container, settings, theme!!)
             } else {
-                LoginScreen(loginState, login::setEmail, login::setPassword, login::togglePassword,
-                    login::submit, login::recoverPassword, login::exploreDemo)
+                LoginScreen(loginState, login::setIdentifier, login::submit, login::exploreDemo)
             }
         }
     }

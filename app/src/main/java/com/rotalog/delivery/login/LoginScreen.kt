@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -21,19 +20,14 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun LoginScreen(
     state: LoginUiState,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onTogglePassword: () -> Unit,
+    onIdentifierChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    onRecoverPassword: () -> Unit,
     onExploreDemo: () -> Unit,
 ) {
     val focus = LocalFocusManager.current
@@ -50,11 +44,14 @@ fun LoginScreen(
                 LoginBrand()
                 Spacer(Modifier.weight(1f))
                 SectionCard {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Entrar na sua conta", style = MaterialTheme.typography.headlineSmall)
-                            Text("Use o acesso fornecido pela sua operação.", style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(AppIcons.Truck, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Acesso do motorista", style = MaterialTheme.typography.titleLarge)
+                    }
+                    Text("Informe o acesso fornecido pela sua operação.", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                SectionCard {
                         state.message?.let { message ->
                             Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp)) {
                                 Text(message, Modifier.padding(12.dp).semantics { liveRegion = LiveRegionMode.Polite },
@@ -62,39 +59,18 @@ fun LoginScreen(
                             }
                         }
                         OutlinedTextField(
-                            value = state.email, onValueChange = onEmailChange,
-                            modifier = Modifier.fillMaxWidth().testTag("login-email"),
-                            label = { Text("E-mail") }, placeholder = { Text("seuemail@exemplo.com") },
-                            leadingIcon = { Icon(LoginIcons.Mail, null) },
+                            value = state.identifier, onValueChange = onIdentifierChange,
+                            modifier = Modifier.fillMaxWidth().testTag("login-identifier"),
+                            label = { Text("Identificador / Matrícula ou Telefone") },
+                            placeholder = { Text("DRV-9082 ou (92) 99999-9999") },
                             singleLine = true, shape = RoundedCornerShape(12.dp),
-                            isError = state.emailError != null,
-                            supportingText = state.emailError?.let { error -> { Text(error) } },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
-                        )
-                        OutlinedTextField(
-                            value = state.password, onValueChange = onPasswordChange,
-                            modifier = Modifier.fillMaxWidth().testTag("login-password"),
-                            label = { Text("Senha") }, placeholder = { Text("Digite sua senha") },
-                            leadingIcon = { Icon(LoginIcons.Lock, null) },
-                            trailingIcon = {
-                                IconButton(onClick = onTogglePassword, modifier = Modifier.size(48.dp)) {
-                                    Icon(if (state.passwordVisible) LoginIcons.EyeOff else LoginIcons.Eye,
-                                        if (state.passwordVisible) "Ocultar senha" else "Mostrar senha")
-                                }
-                            },
-                            singleLine = true, shape = RoundedCornerShape(12.dp),
-                            visualTransformation = if (state.passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            isError = state.passwordError != null,
-                            supportingText = state.passwordError?.let { error -> { Text(error) } },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                            isError = state.identifierError != null,
+                            supportingText = state.identifierError?.let { error -> { Text(error) } },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { submit() }),
                         )
-                        TextButton(onClick = onRecoverPassword, modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp)) {
-                            Text("Esqueci minha senha", style = MaterialTheme.typography.bodyMedium)
-                        }
                         Button(onClick = submit, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), shape = RoundedCornerShape(12.dp)) {
-                            Text("Entrar")
+                            Text("Entrar no RotaLog")
                         }
                 }
                 Spacer(Modifier.weight(1f))

@@ -10,12 +10,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rotalog.delivery.model.*
+import androidx.compose.ui.platform.testTag
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
 fun RoutesScreen(
@@ -26,7 +29,8 @@ fun RoutesScreen(
     onShowStops: (String) -> Unit,
     onNavigate: (Stop) -> Unit,
     onCall: (Stop) -> Unit,
-    onNextStop: () -> Unit
+    onNextStop: () -> Unit,
+    routeMap: RouteMap = DemonstrationRouteMap
 ) {
     when {
         state.loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
@@ -37,7 +41,7 @@ fun RoutesScreen(
             Text("Você pode explorar os outros cenários na aba Perfil.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-        state.route.status == RouteStatus.ACTIVE -> ActiveRoute(state, onSelectStop, onExpandedChange, onShowStops, onNavigate, onCall, onNextStop)
+        state.route.status == RouteStatus.ACTIVE -> ActiveRoute(state, onSelectStop, onExpandedChange, onShowStops, onNavigate, onCall, onNextStop, routeMap)
         else -> AssignedRoute(state, onAccept, onShowStops)
     }
 }
@@ -50,7 +54,7 @@ private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStop
         DemoNotice()
         Heading("Sua rota atribuída")
         Text("Confira os dados e confirme o aceite para continuar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Card {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(route.code, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(route.date)
@@ -94,32 +98,49 @@ private fun ActiveRoute(
     onShowStops: (String) -> Unit,
     onNavigate: (Stop) -> Unit,
     onCall: (Stop) -> Unit,
-    onNextStop: () -> Unit
+    onNextStop: () -> Unit,
+    routeMap: RouteMap
 ) {
     val route = state.route ?: return
     val selected = state.selectedStop ?: return
-    val sheetState = rememberStandardBottomSheetState(initialValue = SheetValue.PartiallyExpanded, skipHiddenState = true)
+    val expandedChange by rememberUpdatedState(onExpandedChange)
+    val sheetState = rememberStandardBottomSheetState(
+        initialValue = if (state.expanded) SheetValue.Expanded else SheetValue.PartiallyExpanded,
+        skipHiddenState = true
+    )
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = sheetState)
     val density = LocalDensity.current
     val detailsScroll = key(selected.id) { rememberScrollState() }
-    LaunchedEffect(state.expanded) { if (!state.expanded) detailsScroll.scrollTo(0) }
-    LaunchedEffect(state.expanded) { if (state.expanded) sheetState.expand() else sheetState.partialExpand() }
+    var movingFromState by remember { mutableStateOf(false) }
+    LaunchedEffect(state.expanded) {
+        movingFromState = true
+        try {
+            if (!state.expanded) detailsScroll.scrollTo(0)
+            if (state.expanded) sheetState.expand() else sheetState.partialExpand()
+        } finally { movingFromState = false }
+    }
     LaunchedEffect(sheetState) {
-        snapshotFlow { sheetState.currentValue }.distinctUntilChanged().drop(1).collect {
-            onExpandedChange(it == SheetValue.Expanded)
+        // Only settled gestures may update the saved state. Intermediate programmatic
+        // positions must not overwrite a newer selection or expansion request.
+        snapshotFlow {
+            if (movingFromState || sheetState.isAnimationRunning || sheetState.currentValue != sheetState.targetValue) null
+            else sheetState.currentValue
+        }.filterNotNull().distinctUntilChanged().drop(1).collect {
+            expandedChange(it == SheetValue.Expanded)
         }
     }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(route.code, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { onShowStops(route.id) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Lista de paradas") }
+            Text(route.code, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("${route.completedStops} de ${route.stops.size} concluídas", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { onShowStops(route.id) }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Lista de paradas" }) { Text("Paradas") }
             }
-            Text("Demonstração • ${route.completedStops} de ${route.stops.size} paradas concluídas", style = MaterialTheme.typography.bodyMedium)
             LinearProgressIndicator(progress = { route.progress }, modifier = Modifier.fillMaxWidth())
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val maxSheetHeight = (maxHeight - 152.dp).coerceAtLeast(140.dp)
+            val minimumMapHeight = if (density.fontScale > 1.3f) 180.dp else 136.dp
+            val maxSheetHeight = (maxHeight - minimumMapHeight - 48.dp).coerceAtLeast(120.dp)
             val peekHeight = (210.dp * density.fontScale.coerceAtMost(1.4f)).coerceAtMost(maxSheetHeight)
             val visibleHeight by remember(sheetState, maxHeight, density) {
                 derivedStateOf { with(density) { runCatching { sheetState.requireOffset().toDp() }.getOrDefault(maxHeight - peekHeight) }.coerceAtLeast(104.dp) }
@@ -127,33 +148,36 @@ private fun ActiveRoute(
             BottomSheetScaffold(
                 scaffoldState = scaffoldState,
                 sheetPeekHeight = peekHeight,
+                sheetDragHandle = { BottomSheetDefaults.DragHandle(modifier = Modifier.testTag("route-sheet-handle")) },
                 sheetContainerColor = MaterialTheme.colorScheme.surface,
                 sheetContent = {
-                    Column(Modifier.fillMaxWidth().heightIn(max = maxSheetHeight).verticalScroll(detailsScroll).padding(start = 20.dp, end = 20.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(if (selected.id == route.nextStop?.id) "PRÓXIMA PARADA" else "PARADA SELECIONADA", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text("${selected.sequence}. ${selected.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("${selected.type.label} • ${selected.status.label}")
-                        Text(selected.address, style = MaterialTheme.typography.bodyMedium)
-                        Text("Janela: ${selected.window}", style = MaterialTheme.typography.bodyMedium)
+                    Column(Modifier.fillMaxWidth().height(maxSheetHeight).padding(horizontal = 20.dp)) {
                         Button(onClick = { onExpandedChange(!state.expanded) }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                             Text(if (state.expanded) "Recolher detalhes" else "Ver detalhes")
                         }
-                        if (selected.id != route.nextStop?.id && route.nextStop != null) {
-                            OutlinedButton(onClick = onNextStop, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Voltar à próxima parada") }
+                        Column(Modifier.weight(1f).verticalScroll(detailsScroll).padding(top = 12.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(if (selected.id == route.nextStop?.id) "PRÓXIMA PARADA" else "PARADA SELECIONADA", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text("${selected.sequence}. ${selected.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("${selected.type.label} • ${selected.status.label}")
+                            Text(selected.address, style = MaterialTheme.typography.bodyMedium)
+                            Text("Janela: ${selected.window}", style = MaterialTheme.typography.bodyMedium)
+                            if (selected.id != route.nextStop?.id && route.nextStop != null) {
+                                OutlinedButton(onClick = onNextStop, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Voltar à próxima parada") }
+                            }
+                            HorizontalDivider()
+                            StopDetails(selected, onNavigate, onCall)
+                            HorizontalDivider()
+                            Text("Carga da rota", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Coletados: ${route.collectedVolumes} / ${route.collectionVolumes} volumes\nEntregues: ${route.deliveredVolumes} / ${route.deliveryVolumes} volumes")
+                            SyncNotice(route.syncStatus)
+                            state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+                            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
-                        HorizontalDivider()
-                        StopDetails(selected, onNavigate, onCall)
-                        HorizontalDivider()
-                        Text("Carga da rota", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Coletados: ${route.collectedVolumes} / ${route.collectionVolumes} volumes\nEntregues: ${route.deliveredVolumes} / ${route.deliveryVolumes} volumes")
-                        SyncNotice(route.syncStatus)
-                        state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-                        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     }
                 },
                 modifier = Modifier.fillMaxSize()
             ) {
-                DemoRouteMap(route.stops, selected.id, route.nextStop?.id, visibleHeight, onSelectStop, Modifier.fillMaxSize(), expanded = state.expanded)
+                routeMap.Content(route.stops, selected.id, route.nextStop?.id, visibleHeight, state.expanded, onSelectStop, Modifier.fillMaxSize())
             }
         }
     }

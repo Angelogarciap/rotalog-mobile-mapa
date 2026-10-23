@@ -6,9 +6,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -38,6 +41,9 @@ fun DemoRouteMap(
     val ordered = stops.sortedBy { it.sequence }
     BoxWithConstraints(modifier.background(colors.surfaceVariant)) {
         val mapHeight = visibleHeight.coerceIn(104.dp, maxHeight)
+        var legendPixels by remember { mutableIntStateOf(0) }
+        val density = LocalDensity.current
+        val topInset = with(density) { legendPixels.toDp() } + 16.dp
         val compact = expanded && mapHeight < 250.dp
         val grid = !expanded && mapHeight < 250.dp
         val positions = ordered.mapIndexed { index, stop ->
@@ -51,7 +57,7 @@ fun DemoRouteMap(
             val visiblePx = mapHeight.toPx()
             val mapPoints = positions.mapIndexed { index, point ->
                 val regionHeight = if (compact && ordered[index].id != selectedStopId) size.height else visiblePx
-                Offset(24.dp.toPx() + point.x * (size.width - 48.dp.toPx()), 24.dp.toPx() + point.y * (regionHeight - 48.dp.toPx()))
+                Offset(24.dp.toPx() + point.x * (size.width - 48.dp.toPx()), topInset.toPx() + 24.dp.toPx() + point.y * (regionHeight - topInset.toPx() - 48.dp.toPx()).coerceAtLeast(0f))
             }
             val streetColor = colors.surface.copy(alpha = .8f)
             for (i in 0..7) {
@@ -79,7 +85,8 @@ fun DemoRouteMap(
             val point = positions[index]
             val regionHeight = if (compact && !selected) maxHeight else mapHeight
             val x = (maxWidth - 48.dp) * point.x
-            val y = (regionHeight - 48.dp) * point.y
+            val y = topInset + (regionHeight - topInset - 48.dp).coerceAtLeast(0.dp) * point.y
+            val markerShape = if (completed) RoundedCornerShape(10.dp) else CircleShape
             val status = when { completed -> "concluída"; next -> "próxima parada"; else -> "pendente" }
             Box(
                 Modifier.offset(x, y).size(48.dp)
@@ -91,17 +98,17 @@ fun DemoRouteMap(
             ) {
                 Box(
                     Modifier.size(if (selected) 44.dp else 36.dp)
-                        .background(if (completed) colors.tertiary else if (selected || next) colors.primary else colors.surface, CircleShape)
-                        .border(if (selected) 3.dp else 1.dp, if (selected) colors.onPrimary else colors.primary, CircleShape),
+                        .background(if (completed) colors.tertiary else if (selected || next) colors.primary else colors.surface, markerShape)
+                        .border(if (selected) 3.dp else 1.dp, if (selected) colors.onPrimary else colors.primary, markerShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(if (completed) "✓${stop.sequence}" else stop.sequence.toString(),
                         color = if (completed) colors.onTertiary else if (selected || next) colors.onPrimary else colors.onSurface,
-                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }
-        Text("Mapa demonstrativo • sem GPS", Modifier.align(Alignment.TopCenter).padding(8.dp)
+        Text("Mapa demonstrativo • sem GPS", Modifier.align(Alignment.TopCenter).onSizeChanged { legendPixels = it.height }.padding(horizontal = 8.dp)
             .background(colors.surface.copy(alpha = .95f), MaterialTheme.shapes.small).padding(horizontal = 10.dp, vertical = 5.dp),
             color = colors.onSurface, style = MaterialTheme.typography.labelSmall)
     }

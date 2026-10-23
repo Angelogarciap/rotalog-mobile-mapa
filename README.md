@@ -1,183 +1,84 @@
-# RotaLog Mobile
+# RotaLog Entregador
 
-Aplicativo Android operacional do **RotaLog**, destinado aos **motoristas responsáveis pelas coletas, rotas, tentativas de entrega, provas digitais e retornos** do marketplace B2B.
+Aplicativo Android nativo para o motorista do marketplace B2B RotaLog. Esta primeira entrega contém uma demonstração operacional com Kotlin, Jetpack Compose e Material 3.
 
-O app não é o canal de compra nem o painel do fornecedor. Compradores, fornecedores e operadores utilizam o portal web; o motorista utiliza este aplicativo para executar as etapas de campo autorizadas pelo backend.
+## O que está implementado
 
-> **Estado atual:** o repositório contém o projeto Android inicial com Kotlin, Jetpack Compose e Material 3. Autenticação, rede, captura de evidências e demais recursos serão implementados gradualmente conforme o Backlog.
+- **Rotas:** rota atribuída, confirmação explícita de aceite e indicação independente de preparação e recebimento pendentes.
+- **Rota ativa demonstrativa:** oito paradas na ordem da operação, mapa ilustrativo nativo, progresso, lista e painel arrastável com detalhes, contato e produtos.
+- **Ações externas:** escolha de Google Maps, Waze ou copiar endereço; chamada pelo discador. Aplicativos ausentes recebem mensagem e alternativa de copiar o endereço.
+- **Histórico:** uma rota anterior fictícia concluída, independente da rota atual.
+- **Perfil:** identidade demonstrativa, tema do aparelho/claro/escuro, três cenários e seis estados de envio simulados.
 
-## O que o aplicativo faz
+Ao abrir, o cenário padrão é **Rota atribuída**. Aceitar a rota apenas confirma o aceite: não recebe mercadorias, prepara o veículo, inicia rota ou coleta localização. No Perfil, **Rota ativa demonstrativa** carrega um exemplo independente, com duas de oito paradas concluídas. Selecionar uma parada nunca altera seu estado operacional.
 
-Na demonstração, o aplicativo deverá permitir:
+A carga total é calculada a partir dos itens: **70 volumes previstos para coleta e 70 para entrega**, sem somar coleta e entrega como cargas diferentes. Na rota ativa, 70 foram coletados e oito entregues. O Supermercado Amazonas tem 14 volumes: oito caixas de óleo, quatro fardos de arroz e duas caixas de café.
 
-- login e renovação segura da sessão do motorista;
-- consulta de rotas disponíveis ou atribuídas;
-- visualização da sequência de paradas, endereço e janela de entrega;
-- aceite e solicitação de início da rota;
-- início da tentativa e registro dos contatos realizados;
-- captura contextual de localização e foto;
-- identificação e autorização do recebedor;
-- captura de assinatura;
-- registro de aceite, recusa ou tentativa não concluída;
-- envio idempotente da prova e nova tentativa enquanto o app estiver aberto;
-- retorno e transferência de custódia.
+O mapa exibe **“Mapa demonstrativo • sem GPS”**. Os caminhos são vetoriais ilustrativos, sem cálculo de trajetos pelas ruas. Nenhuma permissão de GPS, câmera ou chamada direta é solicitada.
 
-A demonstração é **online**. Persistência offline com Room e WorkManager, rastreamento contínuo por foreground service e envio de pontos em lotes pertencem à fase de piloto.
+## Executar
 
-## Arquitetura e comunicação
-
-```mermaid
-flowchart TB
-    DRIVER["Motorista"] --> APP["App Android"]
-    APP -->|"HTTPS + JSON / API REST"| API["Backend FastAPI"]
-    WEB["Portal web React"] -->|"HTTPS + JSON / API REST"| API
-    API --> DB[(PostgreSQL)]
-    API --> FILES["Evidências privadas"]
-```
-
-O mobile e o frontend não trocam dados diretamente. A API coordena o fluxo:
-
-1. a operação publica e atribui uma rota pelo portal;
-2. o app consulta a rota autorizada e envia os comandos do motorista;
-3. o backend valida sessão, organização, motorista, estado e idempotência;
-4. GPS, foto e assinatura são enviados para endpoints autenticados;
-5. o portal consulta o estado persistido e a timeline.
-
-O OpenAPI do backend é o contrato canônico. Mudanças de endpoints ou schemas precisam ser compatíveis com o portal e o aplicativo. A baseline utiliza HTTP; WebSocket não é requisito.
-
-## Stack
-
-### Presente no repositório
-
-| Área | Tecnologia/configuração |
-|---|---|
-| Linguagem | Kotlin 2.2.10 |
-| UI | Jetpack Compose + Material 3 |
-| Build | Gradle Wrapper 9.5.0 e Android Gradle Plugin 9.3.2 |
-| SDK | `compileSdk 37`, `targetSdk 37`, `minSdk 29` |
-| Compatibilidade Java do código | Java 11 |
-| Testes | JUnit, AndroidX Test, Espresso e Compose UI Test |
-| Pacote | `com.rotalog.delivery` |
-
-### Baseline planejada
-
-- ViewModel e StateFlow para estado de tela;
-- Hilt para injeção de dependências;
-- Retrofit, OkHttp e Kotlin Serialization para a API;
-- DataStore para preferências;
-- Android Keystore para refresh token e credenciais locais;
-- Navigation Compose;
-- CameraX e compressão local para fotos;
-- Fused Location Provider para localização contextual;
-- MockWebServer e testes instrumentados críticos.
-
-No piloto serão adicionados Room, WorkManager e foreground service para fila offline e rastreamento durante rota ativa.
-
-> **Atenção:** o documento técnico define compatibilidade mínima com Android API 26+, mas o projeto atual utiliza `minSdk 29`. Antes da release, a equipe deve decidir se reduzirá o `minSdk` para 26 e validar as funcionalidades nos dois níveis. Este README descreve o requisito executável atual: API 29+.
-
-## Requisitos locais
-
-- Git;
-- Android Studio compatível com AGP 9.3.2;
-- JDK 17 ou superior para executar o Gradle 9.5;
-- Android SDK 37 instalado;
-- dispositivo ou emulador com Android API 29 ou superior;
-- acesso ao backend quando os fluxos de rede forem implementados.
-
-## Configuração e execução local
-
-### Android Studio
+Requisitos: JDK 25, Android SDK `platforms;android-37.0`, Build Tools 36.0.0 e dispositivo/emulador API 29+. Configure `sdk.dir` no `local.properties` (fora do Git) ou `ANDROID_HOME`.
 
 ```bash
-git clone https://github.com/Uninorte-Extensao/rotalog-mobile.git
+export JAVA_HOME=/opt/android-studio/jbr # adapte ao JDK 25 local
+./gradlew :app:assembleDebug
+./gradlew :app:installDebug
 ```
 
-1. Abra a pasta `rotalog-mobile` no Android Studio.
-2. Aguarde o Gradle Sync e a instalação dos componentes de SDK solicitados.
-3. Selecione um emulador ou dispositivo físico com API 29+.
-4. Execute a configuração `app`.
+No Android Studio, abra a raiz, aguarde o Gradle Sync e execute `app`. No Windows, use `gradlew.bat`.
 
-### Linha de comando
+APK: [`app/build/outputs/apk/debug/app-debug.apk`](app/build/outputs/apk/debug/app-debug.apk).
 
-Linux ou macOS:
+## Verificar
 
 ```bash
-cd rotalog-mobile
-./gradlew assembleDebug
-./gradlew installDebug
+./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+# Com dispositivo/emulador conectado:
+./gradlew :app:connectedDebugAndroidTest
 ```
 
-Windows:
+Os testes cobrem aceite repetido, pré-requisitos, isolamento de cenários, totais, próxima parada, seleção, recriação, temas, envio simulado e contratos de intents com aplicações ausentes. A CI executa build, testes unitários e lint na raiz; publica APK e relatórios como artifacts. Os testes instrumentados são executados localmente no AVD com KVM.
 
-```powershell
-cd rotalog-mobile
-.\gradlew.bat assembleDebug
-.\gradlew.bat installDebug
-```
+Consulte o registro da entrega em [docs/VALIDATION.md](docs/VALIDATION.md).
 
-O APK de debug é gerado em `app/build/outputs/apk/debug/`.
+## Arquitetura
 
-### Testes e verificações
-
-```bash
-./gradlew lint
-./gradlew test
-./gradlew connectedAndroidTest
-```
-
-`connectedAndroidTest` exige emulador ou dispositivo conectado. No Windows, substitua `./gradlew` por `.\gradlew.bat`.
-
-Quando o cliente HTTP for implementado, a URL da API deverá ser configurada por build type ou flavor, sem endereço de produção ou secrets fixados no código.
-
-## Organização prevista
-
-A aplicação deve ser organizada por features e responsabilidades, mantendo UI, estado e integrações separadas. Uma estrutura possível é:
+Um módulo `:app`, composição manual de dependências, fluxo unidirecional e estado imutável:
 
 ```text
-app/src/main/java/com/rotalog/delivery/
-  app/          # bootstrap, navegação e tema
-  auth/         # login, sessão e credenciais
-  routes/       # lista, detalhe, paradas e início
-  delivery/     # tentativa, recebedor, prova e envio
-  returns/      # recusa, retorno e custódia
-  data/         # API, DTOs e persistência local
-  shared/       # componentes e utilidades comuns
+com.rotalog.delivery/
+  AppContainer.kt        # dependências com escopo da aplicação
+  MainActivity.kt        # bootstrap e Navigation Compose
+  model/                 # rotas, paradas, itens e estados independentes
+  data/                  # contratos, fixtures e DataStore
+  routes/                # ViewModel + StateFlow, telas e mapa Canvas
+  history/               # histórico demonstrativo
+  profile/               # preferências e controles da demonstração
+  shared/                # componentes, vetores e intents Android
+  ui/theme/              # paletas fixas, Inter, formas e espaçamento
 ```
 
-Os nomes finais podem evoluir com o código. Evite colocar regras de autorização do servidor na UI ou duplicar modelos do OpenAPI sem necessidade.
+O `RoutesViewModel` pertence ao grafo principal e é compartilhado entre Rotas, lista de paradas e controles do Perfil. A navegação transporta apenas `routeId`. `SavedStateHandle` restaura cenário, seleção, expansão, aceite e estado de envio em recriação; a navegação e a rolagem usam a restauração do Compose. O repositório demonstrativo permanece na memória da aplicação. **Somente a preferência de tema tem persistência durável**, em DataStore; encerrar o processo retorna a operação à demonstração padrão. Não existe fila offline real.
 
-## Dados, permissões e segurança
+Os seis estados de envio (salvo no aparelho, aguardando, enviando, confirmado, falha e conflito) são escolhidos manualmente no Perfil e identificados como simulados. Não há confirmação automática por conectividade ou temporizador. “Confirmado” não muda a situação operacional da rota.
 
-- câmera e localização devem ser solicitadas apenas no contexto da tentativa;
-- a finalidade deve ser explicada antes do prompt do sistema;
-- negar uma permissão impede a prova completa, mas permite tentar novamente;
-- fotos e assinaturas ficam em armazenamento privado temporário;
-- tokens ficam protegidos pelo Android Keystore;
-- logout remove credenciais e rascunhos não enviados após confirmação;
-- a demonstração não solicita localização em background;
-- no piloto, rastreamento só ocorre durante rota ativa e com notificação persistente;
-- o foreground service deve encerrar a coleta ao finalizar, cancelar ou perder a atribuição da rota;
-- logs não podem conter tokens, códigos de recebedor, assinaturas ou evidências.
+Versões de referência preservadas: AGP 9.4.1, Gradle 9.6.0, Kotlin 2.2.10, Compose BOM 2026.02.01, `compileSdk/targetSdk 37`, `minSdk 29`. Dependências adicionais: Navigation Compose 2.9.5, Lifecycle Compose 2.9.4 e DataStore Preferences 1.1.7. AndroidX Test JUnit 1.3.0 e Espresso 3.7.0 substituem os testes antigos incompatíveis com o Android 37 (`InputManager.getInstance`). Nenhuma atualização da stack principal foi necessária. Fonte Inter e licença: [docs/licenses](docs/licenses/README.md).
 
-## Distribuição
+## Limites e próxima entrega
 
-- releases devem ser assinadas com keystore fora do Git;
-- APK/AAB deve ser identificado por versão e commit;
-- a demonstração pode usar APK interno ou faixa de teste fechada;
-- instalação e atualização devem ser ensaiadas nos dispositivos definidos.
+Não há backend, autenticação, recebimento completo, checklist operacional, evidências, ocorrências, devoluções, encerramento, mapas reais ou rastreamento. O histórico não fornece comprovantes reais. Telefone e identidade são fictícios.
 
-## Repositórios relacionados
+A próxima etapa é **preparação e recebimento da carga**, mantendo seus pré-requisitos independentes do aceite. Depois, integrar o contrato canônico OpenAPI do backend. Não são necessárias credenciais externas nesta demonstração.
 
-- Backend: https://github.com/Uninorte-Extensao/rotalog-backend
-- Frontend: https://github.com/Uninorte-Extensao/rotalog-frontend
-- Mobile: https://github.com/Uninorte-Extensao/rotalog-mobile
-- Board de implementação: https://trello.com/b/4NmXZdXn/rotalogs
+Para substituir o mapa demonstrativo por Google Maps SDK/Maps Compose, serão necessários projeto Google Cloud, faturamento, SDK habilitado e chave restrita ao aplicativo fora do Git. O SDK desenhará ruas; geometria de percurso deverá vir da operação ou de serviço de rotas.
 
-## Contribuição
+## Referências
 
-1. Escolha uma task no Backlog e confirme o grupo de entrega.
-2. Verifique o contrato OpenAPI e a versão mínima suportada.
-3. Implemente estados de carregamento, erro, reenvio e permissões junto ao fluxo principal.
-4. Execute lint, testes e `assembleDebug` antes do pull request.
-5. Documente impactos de contrato ou dependências sobre backend e frontend.
-
+- [Design no Stitch](https://stitch.withgoogle.com/projects/5674232400967196939)
+- [Navigation Compose](https://developer.android.com/develop/ui/compose/navigation)
+- [DataStore](https://developer.android.com/topic/libraries/architecture/datastore)
+- [Canvas no Compose](https://developer.android.com/develop/ui/compose/graphics/draw/overview)
+- [AndroidX Test: versões e notas de compatibilidade](https://developer.android.com/jetpack/androidx/releases/test)
+- [Maps Compose](https://developers.google.com/maps/documentation/android-sdk/maps-compose)
+- [Backend](https://github.com/Uninorte-Extensao/rotalog-backend) · [Portal](https://github.com/Uninorte-Extensao/rotalog-frontend)

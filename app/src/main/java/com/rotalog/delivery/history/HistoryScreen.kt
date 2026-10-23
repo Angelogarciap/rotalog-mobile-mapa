@@ -68,7 +68,7 @@ fun HistoryScreen(history: List<Route>) {
             ) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(route.date, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Rota ${route.code}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(route.code, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(8.dp)) {
                         Text("Concluída", Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelLarge)
                     }

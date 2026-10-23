@@ -56,3 +56,21 @@ explicitamente; os pacotes do projeto continuam na etapa seguinte.
 Regressão: antes da correção, o novo teste falhou com `'tools' unexpectedly found
 in ['tools', 'platform-tools']`; após a configuração explícita, os quatro testes
 de contrato passaram. Não foi necessária refatoração adicional.
+
+### Validação na main
+
+A correção foi enviada diretamente para `main` no commit `76317c0`, junto da
+distribuição do APK antes disponível em `development`.
+
+- Validação local completa no checkout da main:
+  `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`, com
+  `ANDROID_HOME` apontando para o SDK local: `BUILD SUCCESSFUL`, 51 tarefas
+  executadas. Os quatro testes do workflow também passaram.
+- [Execução 40035926558](https://github.com/ivanmatheus-dev/rotalog-mobile/actions/runs/40035926558):
+  todas as etapas aprovadas, incluindo configuração/instalação do SDK,
+  contratos, build, testes unitários, lint e uploads.
+- Artifact `rotalog-debug-4-76317c0b9f11b5f7e4032cce672e0a40103e6865`
+  (`12537755189`): download efetivamente realizado, 12.188.272 bytes.
+  ZIP íntegro, contendo `app-debug.apk`; o APK contém manifesto e classes DEX.
+  SHA-256 do ZIP conferido com o digest publicado pelo GitHub:
+  `86cfd8ad709b5b991b41274b909acb15485f4ca95ea060dd0d6ecbf618c9fa87`.

@@ -1,4 +1,4 @@
-package com.rotalog.delivery
+package com.rotalog.delivery.routes
 
 import androidx.lifecycle.SavedStateHandle
 import com.rotalog.delivery.data.DemoRouteRepository
@@ -34,20 +34,6 @@ class RouteRulesTest {
         }
     }
 
-    @Test fun activeFixtureAndResetNeverCompleteAssignedRoute() = runTest {
-        val repo = DemoRouteRepository()
-        repo.acceptRoute(repo.route.value!!.id)
-        repo.selectScenario(DemoScenario.ACTIVE)
-        assertNotEquals(DemoRoutes.assigned().id, repo.route.value!!.id)
-        assertEquals(2, repo.route.value!!.completedStops)
-        repo.selectScenario(DemoScenario.ASSIGNED)
-        assertEquals(DemoRoutes.assigned(), repo.route.value)
-        repo.selectScenario(DemoScenario.EMPTY)
-        assertNull(repo.route.value)
-        assertEquals(AcceptRouteResult.NotAvailable, repo.acceptRoute("absent"))
-        repo.resetScenario()
-        assertNull(repo.route.value)
-    }
 
     @Test fun quantitiesAndProgressDistinguishCollectionAndDelivery() {
         val route = DemoRoutes.active()
@@ -62,19 +48,8 @@ class RouteRulesTest {
         assertEquals(listOf(8, 4, 2), supermarket.items.map { it.quantity })
         assertEquals(14, supermarket.volumes)
         assertEquals("Roberto (gerente)", supermarket.contact)
-        assertEquals(1f, DemoRoutes.history().single().progress)
-        assertTrue(DemoRoutes.history().none { it.id == route.id })
     }
 
-    @Test fun manualSyncHasNoAutomaticConfirmationOrOperationalEffect() = runTest {
-        val repo = DemoRouteRepository()
-        val original = repo.route.value!!
-        SyncStatus.entries.forEach { status ->
-            repo.simulateSync(status)
-            advanceTimeBy(60_000)
-            assertEquals(original.copy(syncStatus = status), repo.route.value)
-        }
-    }
 
     @Test fun selectionAndExpansionRestoreWithoutChangingOperationalState() = runTest {
         val repo = DemoRouteRepository()

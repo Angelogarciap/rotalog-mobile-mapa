@@ -40,6 +40,8 @@ APK: [`app/build/outputs/apk/debug/app-debug.apk`](app/build/outputs/apk/debug/a
 
 ## Verificar
 
+Durante o desenvolvimento, execute somente os testes das seções alteradas e fluxos relacionados. Consulte os pacotes e comandos em [docs/TESTING.md](docs/TESTING.md) (Login, Rotas, Preparação/recebimento, Histórico e Perfil). Ao finalizar, execute a regressão completa abaixo, **sem filtros**, para detectar efeitos colaterais.
+
 ```bash
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 # Com dispositivo/emulador conectado:

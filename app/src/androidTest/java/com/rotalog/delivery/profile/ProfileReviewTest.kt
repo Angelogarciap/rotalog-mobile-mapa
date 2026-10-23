@@ -1,8 +1,8 @@
-package com.rotalog.delivery
+package com.rotalog.delivery.profile
 
-import android.os.SystemClock
-import android.graphics.Bitmap
 import android.content.ContentValues
+import android.graphics.Bitmap
+import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -10,6 +10,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.rotalog.delivery.MainActivity
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

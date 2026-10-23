@@ -1,13 +1,17 @@
-package com.rotalog.delivery
+package com.rotalog.delivery.profile
 
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import androidx.compose.ui.unit.dp
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.rotalog.delivery.MainActivity
+import com.rotalog.delivery.RotalogApplication
+import com.rotalog.delivery.model.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -17,7 +21,15 @@ import org.junit.runner.RunWith
 class ProfileFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private fun click(text: String) = compose.onNode(hasText(text) and hasClickAction()).performClick()
-    private fun scrollClick(text: String) = compose.onNodeWithText(text).performScrollTo().performClick()
+    private val container get() = (compose.activity.application as RotalogApplication).container
+    private fun scrollClick(text: String) {
+        val demoControls = com.rotalog.delivery.model.DemoScenario.entries.map { it.label } +
+            com.rotalog.delivery.model.SyncStatus.entries.map { it.label } + "Reiniciar cenário atual"
+        if (text in demoControls && compose.onAllNodesWithText("Reiniciar cenário atual").fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithText("Ambiente de demonstração").performScrollTo().performClick()
+        }
+        compose.onNodeWithText(text).performScrollTo().performClick()
+    }
     @Before fun openProfile() {
         scrollClick("Explorar demonstração")
         click("Perfil")
@@ -79,4 +91,30 @@ class ProfileFlowTest {
             compose.onNodeWithText(theme).performScrollTo().assertIsSelected()
         }
     }
+    @Test fun themesScenariosAndManualSyncRemainIndependent() {
+        scrollClick("Escuro")
+        compose.activityRule.scenario.recreate()
+        compose.waitForIdle()
+        compose.onNodeWithText("Escuro").performScrollTo().assertIsSelected()
+        scrollClick("Claro")
+        scrollClick("Usar tema do aparelho")
+        scrollClick("Rota ativa demonstrativa")
+        scrollClick("Conflito")
+        compose.runOnIdle { assertEquals(SyncStatus.CONFLICT, container.routes.route.value!!.syncStatus) }
+        click("Rotas")
+        compose.runOnIdle { assertEquals(2, container.routes.route.value!!.completedStops) }
+        click("Perfil")
+        scrollClick("Sem rota atribuída")
+        click("Rotas")
+        compose.onNodeWithText("Nenhuma rota atribuída").assertIsDisplayed()
+        click("Perfil")
+        scrollClick("Rota atribuída")
+        click("Rotas")
+        compose.runOnIdle {
+            assertEquals(RouteStatus.ASSIGNED, container.routes.route.value!!.status)
+            assertFalse(container.routes.route.value!!.prepared)
+            assertFalse(container.routes.route.value!!.cargoReceived)
+        }
+    }
+
 }

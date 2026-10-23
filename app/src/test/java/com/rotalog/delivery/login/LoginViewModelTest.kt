@@ -1,7 +1,6 @@
-package com.rotalog.delivery
+package com.rotalog.delivery.login
 
 import androidx.lifecycle.SavedStateHandle
-import com.rotalog.delivery.login.LoginViewModel
 import org.junit.Assert.*
 import org.junit.Test
 

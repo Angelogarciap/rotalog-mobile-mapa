@@ -1,4 +1,4 @@
-package com.rotalog.delivery
+package com.rotalog.delivery.loading
 
 import android.content.ContentValues
 import android.graphics.Bitmap
@@ -6,9 +6,11 @@ import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso.closeSoftKeyboard
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.rotalog.delivery.MainActivity
+import com.rotalog.delivery.RotalogApplication
 import com.rotalog.delivery.model.*
 import org.junit.Assert.*
 import org.junit.Before
@@ -21,14 +23,7 @@ class LoadingFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val container get() = (compose.activity.application as RotalogApplication).container
     private fun click(label: String) = compose.onNode(hasText(label) and hasClickAction()).performClick()
-    private fun scrollClick(label: String) {
-        val demoControls = com.rotalog.delivery.model.DemoScenario.entries.map { it.label } +
-            com.rotalog.delivery.model.SyncStatus.entries.map { it.label } + "Reiniciar cenário atual"
-        if (label in demoControls && compose.onAllNodesWithText("Reiniciar cenário atual").fetchSemanticsNodes().isEmpty()) {
-            compose.onNodeWithText("Ambiente de demonstração").performScrollTo().performClick()
-        }
-        compose.onNodeWithText(label).performScrollTo().performClick()
-    }
+    private fun scrollClick(label: String) = compose.onNodeWithText(label).performScrollTo().performClick()
     @Before fun reset() {
         compose.onNodeWithText("Explorar demonstração").performScrollTo().performClick()
         compose.runOnIdle { container.routes.selectScenario(DemoScenario.ASSIGNED) } }
@@ -103,7 +98,10 @@ class LoadingFlowTest {
     }
     @Test fun loadingScreensFollowBothThemesAndRestoreChecklistDraft() {
         for (theme in listOf("Claro", "Escuro")) {
-            click("Perfil"); scrollClick(theme); scrollClick("Rota atribuída"); scrollClick("Reiniciar cenário atual"); click("Rotas")
+            kotlinx.coroutines.runBlocking {
+                container.settings.setTheme(if (theme == "Claro") ThemeMode.LIGHT else ThemeMode.DARK)
+            }
+            compose.runOnIdle { container.routes.selectScenario(DemoScenario.ASSIGNED) }
             scrollClick("Aceitar rota"); click("Confirmar aceite"); scrollClick("Preparar saída")
             scrollClick(PreparationCheck.FUEL.label)
             compose.activityRule.scenario.recreate(); compose.waitForIdle()

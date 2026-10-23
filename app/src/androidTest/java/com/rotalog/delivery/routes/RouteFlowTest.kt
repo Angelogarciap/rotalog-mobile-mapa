@@ -1,4 +1,4 @@
-package com.rotalog.delivery
+package com.rotalog.delivery.routes
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -6,6 +6,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.rotalog.delivery.MainActivity
+import com.rotalog.delivery.RotalogApplication
 import com.rotalog.delivery.data.DemoRoutes
 import com.rotalog.delivery.model.*
 import com.rotalog.delivery.shared.ExternalActions
@@ -18,7 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class DeliveryFlowTest {
+class RouteFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     @Before fun resetDemo() {
         compose.onNodeWithText("Explorar demonstração").performScrollTo().performClick()
@@ -26,18 +28,9 @@ class DeliveryFlowTest {
     }
     private val container get() = (compose.activity.application as RotalogApplication).container
     private fun click(label: String) = compose.onNode(hasText(label) and hasClickAction()).performClick()
-    private fun scrollClick(label: String) {
-        val demoControls = com.rotalog.delivery.model.DemoScenario.entries.map { it.label } +
-            com.rotalog.delivery.model.SyncStatus.entries.map { it.label } + "Reiniciar cenário atual"
-        if (label in demoControls && compose.onAllNodesWithText("Reiniciar cenário atual").fetchSemanticsNodes().isEmpty()) {
-            compose.onNodeWithText("Ambiente de demonstração").performScrollTo().performClick()
-        }
-        compose.onNodeWithText(label).performScrollTo().performClick()
-    }
+    private fun scrollClick(label: String) = compose.onNodeWithText(label).performScrollTo().performClick()
     private fun activeDemo() {
-        click("Perfil")
-        scrollClick("Rota ativa demonstrativa")
-        click("Rotas")
+        compose.runOnIdle { container.routes.selectScenario(DemoScenario.ACTIVE) }
         compose.onNodeWithText("Mapa demonstrativo • sem GPS").assertIsDisplayed()
     }
 
@@ -97,32 +90,6 @@ class DeliveryFlowTest {
         compose.onNodeWithText("Recolher detalhes").assertExists()
     }
 
-    @Test fun themesScenariosAndManualSyncRemainIndependent() {
-        click("Perfil")
-        scrollClick("Escuro")
-        compose.activityRule.scenario.recreate()
-        compose.waitForIdle()
-        compose.onNodeWithText("Escuro").performScrollTo().assertIsSelected()
-        scrollClick("Claro")
-        scrollClick("Usar tema do aparelho")
-        scrollClick("Rota ativa demonstrativa")
-        scrollClick("Conflito")
-        compose.runOnIdle { assertEquals(SyncStatus.CONFLICT, container.routes.route.value!!.syncStatus) }
-        click("Rotas")
-        compose.runOnIdle { assertEquals(2, container.routes.route.value!!.completedStops) }
-        click("Perfil")
-        scrollClick("Sem rota atribuída")
-        click("Rotas")
-        compose.onNodeWithText("Nenhuma rota atribuída").assertIsDisplayed()
-        click("Perfil")
-        scrollClick("Rota atribuída")
-        click("Rotas")
-        compose.runOnIdle {
-            assertEquals(RouteStatus.ASSIGNED, container.routes.route.value!!.status)
-            assertFalse(container.routes.route.value!!.prepared)
-            assertFalse(container.routes.route.value!!.cargoReceived)
-        }
-    }
 
     @Test fun externalActionsHandleMissingApplicationsAndUseDialerOnly() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

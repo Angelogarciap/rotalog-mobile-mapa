@@ -1,13 +1,15 @@
-package com.rotalog.delivery
+package com.rotalog.delivery.routes
 
-import android.os.SystemClock
-import android.graphics.Bitmap
 import android.content.ContentValues
+import android.graphics.Bitmap
+import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.rotalog.delivery.MainActivity
+import com.rotalog.delivery.RotalogApplication
 import com.rotalog.delivery.model.DemoScenario
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -16,17 +18,9 @@ import org.junit.runner.RunWith
 
 /** Captures real device frames for manual review, including system bars and accessibility font scale. */
 @RunWith(AndroidJUnit4::class)
-class ReviewScreensTest {
+class RouteReviewTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private fun click(text: String) = compose.onNode(hasText(text) and hasClickAction()).performClick()
-    private fun scrollClick(text: String) {
-        val demoControls = com.rotalog.delivery.model.DemoScenario.entries.map { it.label } +
-            com.rotalog.delivery.model.SyncStatus.entries.map { it.label } + "Reiniciar cenário atual"
-        if (text in demoControls && compose.onAllNodesWithText("Reiniciar cenário atual").fetchSemanticsNodes().isEmpty()) {
-            compose.onNodeWithText("Ambiente de demonstração").performScrollTo().performClick()
-        }
-        compose.onNodeWithText(text).performScrollTo().performClick()
-    }
     private fun capture(name: String) {
         compose.waitForIdle()
         SystemClock.sleep(100) // Let the device render thread present the settled frame.
@@ -43,21 +37,19 @@ class ReviewScreensTest {
         screenshot.recycle()
     }
 
-    @Test fun reviewScreensInBothThemesAndKeepSelectedMarkerVisible() {
+    @Test fun reviewRoutesInBothThemesAndKeepSelectedMarkerVisible() {
         compose.onNodeWithText("Explorar demonstração").performScrollTo().performClick()
         // The preceding flow copies an address. Let Android's clipboard overlay dismiss.
         SystemClock.sleep(6_500)
         for (theme in listOf("Claro", "Escuro")) {
             val prefix = if (theme == "Claro") "light" else "dark"
-            click("Perfil")
-            scrollClick(theme)
-            scrollClick("Rota atribuída")
-            scrollClick("Reiniciar cenário atual")
-            click("Rotas")
+            val container = (compose.activity.application as RotalogApplication).container
+            kotlinx.coroutines.runBlocking {
+                container.settings.setTheme(if (theme == "Claro") com.rotalog.delivery.model.ThemeMode.LIGHT else com.rotalog.delivery.model.ThemeMode.DARK)
+            }
+            compose.runOnIdle { container.routes.selectScenario(DemoScenario.ASSIGNED) }
             capture("$prefix-assigned")
-            click("Perfil")
-            scrollClick("Rota ativa demonstrativa")
-            click("Rotas")
+            compose.runOnIdle { container.routes.selectScenario(DemoScenario.ACTIVE) }
             capture("$prefix-active")
             click("Ver detalhes")
             compose.onNodeWithText("Recolher detalhes").assertIsDisplayed()
@@ -70,11 +62,7 @@ class ReviewScreensTest {
             capture("$prefix-details")
             compose.onNodeWithText("14 volumes para entrega").performScrollTo().assertIsDisplayed()
             capture("$prefix-products")
-            click("Histórico")
-            capture("$prefix-history")
-            click("Perfil")
-            compose.onNodeWithText("Carlos Eduardo Mendes").performScrollTo()
-            capture("$prefix-profile")
+            click("Recolher detalhes")
         }
     }
 }

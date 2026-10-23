@@ -3,6 +3,8 @@ package com.rotalog.delivery.login
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
+import androidx.compose.ui.unit.dp
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -21,6 +23,15 @@ class LoginFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private fun click(text: String) = compose.onNodeWithText(text).performScrollTo().performClick()
     private val unavailable = "Acesso indisponível nesta versão. Nenhum dado foi enviado."
+
+    @Test fun brandAndIntroductionFormOneCompactComposition() {
+        val brand = compose.onNodeWithText("Entregador").getUnclippedBoundsInRoot()
+        val title = compose.onNodeWithText("Acesso do motorista").getUnclippedBoundsInRoot()
+        assertTrue("Cabeçalho e apresentação devem estar próximos (até 96 dp)",
+            title.top - brand.bottom <= 96.dp)
+        compose.onNodeWithTag("login-identifier").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Explorar demonstração").performScrollTo().assertIsDisplayed()
+    }
 
     @Test fun driverAccessHasOneIdentifierFieldAndNoPasswordControls() {
         compose.onNodeWithText("Acesso do motorista").assertExists()
@@ -62,7 +73,13 @@ class LoginFlowTest {
         val settings = (compose.activity.application as RotalogApplication).container.settings
         for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
             runBlocking { settings.setTheme(theme) }
+            compose.onNodeWithTag("login-identifier").performScrollTo().performTextReplacement("DRV-9082")
+            compose.onNodeWithTag("login-identifier").performTextClearance()
+            closeSoftKeyboard()
+            compose.activityRule.scenario.recreate()
             compose.waitForIdle()
+            // Allow the Android window to present the selected theme before screenshots.
+            android.os.SystemClock.sleep(500)
             compose.onNodeWithText("Acesso do motorista").performScrollTo().assertIsDisplayed()
             captureScrollPages(compose, "${theme.name}-driver-access")
             compose.onNodeWithTag("login-identifier").performScrollTo().performTextReplacement("DRV-9082")

@@ -4,7 +4,7 @@ Aplicativo Android nativo para o motorista do marketplace B2B RotaLog. A versão
 
 ## O que está implementado
 
-- **Login:** acesso com um único identificador, matrícula ou telefone, sem validação de cadastro real. Autenticação indisponível; **Explorar demonstração** é uma entrada separada para os dados fictícios.
+- **Login:** composição visual integrada, sem cards empilhados, marca ampliada, rótulo fixo e temas claro/escuro com Inter. Acesso com um único identificador, matrícula ou telefone, sem validação de cadastro real. Autenticação indisponível; **Explorar demonstração** é uma entrada separada para os dados fictícios.
 - **Rotas:** indicador horizontal **Aceite → Recebimento → Início**, com confirmação explícita de cada ação. Etapas disponíveis podem ser revistas sem desfazer o progresso.
 - **Recebimento no CD:** manifesto de oito produtos / 70 volumes, divergências locais, resolução explícita e confirmação de recebimento. O início é uma ação separada, liberada após aceite e recebimento, sem divergências pendentes. O checklist de veículo foi retirado.
 - **Rota ativa demonstrativa:** oito paradas na ordem da operação, mapa ilustrativo nativo estável, progresso, lista e resumo inferior. Os detalhes completos abrem em uma camada opaca de tela cheia, mantendo o mapa montado e com as mesmas dimensões.
@@ -55,6 +55,8 @@ Durante o desenvolvimento, execute somente os testes das seções alteradas e fl
 ```
 
 Os testes cobrem aceite repetido, bloqueios de recebimento/partida, declaração global, divergências e nova conferência, revisão/restauração de etapas e formulário, isolamento de cenários, totais, próxima parada, seleção, recriação, temas, expansão/recolhimento e restauração do Perfil, seleção acessível e adaptação das opções de tema, envio simulado e contratos de intents com aplicações ausentes. A CI executa build, testes unitários e lint na raiz; publica APK e relatórios como artifacts. Os testes instrumentados são executados localmente no AVD com KVM.
+
+Redesign visual do login e evidências: [docs/LOGIN-REDESIGN-VALIDATION.md](docs/LOGIN-REDESIGN-VALIDATION.md).
 
 Consulte a unificação visual e a consulta do Histórico em [docs/UI-REFINEMENT-VALIDATION.md](docs/UI-REFINEMENT-VALIDATION.md), a validação do Perfil em [docs/PROFILE-VALIDATION.md](docs/PROFILE-VALIDATION.md), a validação do login em [docs/LOGIN-VALIDATION.md](docs/LOGIN-VALIDATION.md), o registro operacional em [docs/LOADING-VALIDATION.md](docs/LOADING-VALIDATION.md) e o histórico da primeira entrega em [docs/VALIDATION.md](docs/VALIDATION.md).
 

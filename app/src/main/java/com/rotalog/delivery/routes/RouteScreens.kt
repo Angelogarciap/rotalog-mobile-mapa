@@ -30,6 +30,9 @@ fun RoutesScreen(
     onNavigate: (Stop) -> Unit,
     onCall: (Stop) -> Unit,
     onNextStop: () -> Unit,
+    onPreparation: (String) -> Unit,
+    onReceipt: (String) -> Unit,
+    onStart: () -> Unit,
     routeMap: RouteMap = DemonstrationRouteMap
 ) {
     when {
@@ -42,14 +45,15 @@ fun RoutesScreen(
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         state.route.status == RouteStatus.ACTIVE -> ActiveRoute(state, onSelectStop, onExpandedChange, onShowStops, onNavigate, onCall, onNextStop, routeMap)
-        else -> AssignedRoute(state, onAccept, onShowStops)
+        else -> AssignedRoute(state, onAccept, onShowStops, onPreparation, onReceipt, onStart)
     }
 }
 
 @Composable
-private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStops: (String) -> Unit) {
+private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStops: (String) -> Unit, onPreparation: (String) -> Unit, onReceipt: (String) -> Unit, onStart: () -> Unit) {
     val route = state.route ?: return
     var confirm by rememberSaveable { mutableStateOf(false) }
+    var confirmStart by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         DemoNotice()
         Heading("Sua rota atribuída")
@@ -68,18 +72,34 @@ private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStop
         }
         Text("Antes de sair", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Stage("1", "Aceite da rota", if (route.status == RouteStatus.ACCEPTED) "Confirmado" else "Pendente", route.status == RouteStatus.ACCEPTED)
-        Stage("2", "Recebimento da carga", if (route.cargoReceived) "Confirmado" else "Pendente • próxima etapa", route.cargoReceived)
-        Stage("3", "Preparação para saída", if (route.prepared) "Confirmada" else "Pendente • próxima etapa", route.prepared)
+        Stage("2", "Preparação para saída", if (route.prepared) "Confirmada" else "Pendente", route.prepared)
+        Stage("3", "Recebimento da carga", if (route.cargoReceived) "Confirmado" else "Pendente", route.cargoReceived)
         if (route.status == RouteStatus.ASSIGNED) {
             Button(onClick = { confirm = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Aceitar rota") }
         } else {
-            Text("Rota aceita. O recebimento da carga e a preparação continuam pendentes. Essas etapas estarão disponíveis na próxima entrega.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = { onPreparation(route.id) }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                Text(if (route.prepared) "Revisar checklist" else "Preparar saída")
+            }
+            OutlinedButton(onClick = { onReceipt(route.id) }, enabled = route.prepared || route.cargoReceived, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text(if (route.cargoReceived) "Revisar carga recebida" else "Conferir carga no CD")
+            }
+            if (route.canStart) {
+                Button(onClick = { confirmStart = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Iniciar rota") }
+            } else {
+                Text("Partida bloqueada até confirmar o checklist e o recebimento da carga.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         SyncNotice(route.syncStatus)
         state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Spacer(Modifier.height(12.dp))
     }
+    if (confirmStart) AlertDialog(
+        onDismissRequest = { confirmStart = false }, title = { Text("Iniciar rota demonstrativa?") },
+        text = { Text("A carga foi recebida e o checklist confirmado. O mapa abrirá na primeira entrega pendente. Esta demonstração não ativa GPS nem envia dados ao servidor.") },
+        confirmButton = { TextButton(onClick = { confirmStart = false; onStart() }) { Text("Iniciar agora") } },
+        dismissButton = { TextButton(onClick = { confirmStart = false }) { Text("Cancelar") } }
+    )
     if (confirm) AlertDialog(
         onDismissRequest = { confirm = false },
         title = { Text("Aceitar ${route.code}?") },

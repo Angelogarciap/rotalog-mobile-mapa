@@ -105,9 +105,25 @@ private fun AppNavigation(container: AppContainer, settings: SettingsViewModel, 
                 composable("route") { backStack ->
                     val vm = routeViewModel(nav, backStack, container)
                     val state by vm.uiState.collectAsStateWithLifecycle()
-                    LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); vm.clearMessage() } }
                     RoutesScreen(state, vm::acceptRoute, vm::selectStop, vm::setExpanded,
-                        { id -> nav.navigate("stops/$id") }, { navigateStopId = it.id }, { notify(actions.dial(it)) }, vm::nextStop)
+                        { id -> nav.navigate("stops/$id") }, { navigateStopId = it.id }, { notify(actions.dial(it)) }, vm::nextStop,
+                        { nav.navigate("preparation/$it") }, { nav.navigate("receipt/$it") }, vm::startRoute)
+                }
+                composable("preparation/{routeId}", arguments = listOf(navArgument("routeId") { type = NavType.StringType })) { backStack ->
+                    val vm = routeViewModel(nav, backStack, container)
+                    val state by vm.uiState.collectAsStateWithLifecycle()
+                    val validState = state.copy(route = state.route?.takeIf { it.id == backStack.arguments?.getString("routeId") })
+                    PreparationScreen(validState, vm::setPreparationCheck, vm::confirmPreparation,
+                        { nav.navigate("receipt/${state.route?.id}") }, { nav.popBackStack("route", false) })
+                }
+                composable("receipt/{routeId}", arguments = listOf(navArgument("routeId") { type = NavType.StringType })) { backStack ->
+                    val vm = routeViewModel(nav, backStack, container)
+                    val state by vm.uiState.collectAsStateWithLifecycle()
+                    val validState = state.copy(route = state.route?.takeIf { it.id == backStack.arguments?.getString("routeId") })
+                    ReceiptScreen(validState, vm::checkCargo, vm::reportCargoIssue, vm::resolveCargoIssue, vm::confirmReceipt,
+                        { nav.popBackStack("route", false) }, {
+                            nav.navigate("preparation/${state.route?.id}") { popUpTo("route") }
+                        })
                 }
                 composable("stops/{routeId}", arguments = listOf(navArgument("routeId") { type = NavType.StringType })) { backStack ->
                     val vm = routeViewModel(nav, backStack, container)

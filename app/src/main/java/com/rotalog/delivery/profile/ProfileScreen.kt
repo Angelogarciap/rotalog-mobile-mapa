@@ -115,7 +115,7 @@ fun ProfileScreen(
             }
         }
         Text(
-            "RotaLog Entregador • primeira entrega nativa",
+            "RotaLog Entregador • demonstração nativa",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

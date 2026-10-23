@@ -44,6 +44,7 @@ class ReviewScreensTest {
             click("Perfil")
             scrollClick(theme)
             scrollClick("Rota atribuída")
+            scrollClick("Reiniciar cenário atual")
             click("Rotas")
             capture("$prefix-assigned")
             click("Perfil")

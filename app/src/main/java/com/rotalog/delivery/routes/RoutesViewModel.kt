@@ -23,6 +23,7 @@ class RoutesViewModel(
     init {
         val restored = savedState.get<String>("scenario")?.let { value -> DemoScenario.entries.find { it.name == value } }
         if (restored != null && restored != demo.scenario.value) demo.selectScenario(restored)
+        savedState.get<Route>("routeSnapshot")?.let(demo::restoreRoute)
         // An accepted demo is restorable, but accepting never receives cargo or starts the route.
         if (savedState.get<Boolean>("accepted") == true && demo.scenario.value == DemoScenario.ASSIGNED) {
             viewModelScope.launch { repository.route.value?.let { repository.acceptRoute(it.id) } }
@@ -48,16 +49,20 @@ class RoutesViewModel(
         savedState["expanded"] = false
     }
     fun selectScenario(scenario: DemoScenario) {
+        if (scenario != demo.scenario.value) resetToScenario(scenario)
+    }
+    private fun resetToScenario(scenario: DemoScenario) {
         savedState["scenario"] = scenario.name
         savedState["stop"] = null
         savedState["expanded"] = false
         savedState["accepted"] = false
+        savedState["routeSnapshot"] = null
         savedState["sync"] = SyncStatus.LOCAL.name
         message.value = null
         error.value = null
         demo.selectScenario(scenario)
     }
-    fun resetScenario() { selectScenario(demo.scenario.value) }
+    fun resetScenario() { resetToScenario(demo.scenario.value) }
     fun simulateSync(status: SyncStatus) {
         savedState["sync"] = status.name
         demo.simulateSync(status)
@@ -71,6 +76,8 @@ class RoutesViewModel(
                 message.value = when (repository.acceptRoute(id)) {
                     AcceptRouteResult.Accepted -> {
                         savedState["accepted"] = true
+                        savedState["routeSnapshot"] = repository.route.value
+                        savedState["sync"] = repository.route.value?.syncStatus?.name
                         "Aceite salvo nesta demonstração. Preparação e recebimento continuam pendentes."
                     }
                     AcceptRouteResult.AlreadyAccepted -> "O aceite desta rota já foi confirmado."
@@ -79,6 +86,34 @@ class RoutesViewModel(
             } catch (exception: java.io.IOException) {
                 error.value = "Não foi possível aceitar a rota. Tente novamente."
             } finally { busy.value = false }
+        }
+    }
+    private fun command(success: String? = null, action: suspend (String) -> RouteCommandResult) {
+        val id = repository.route.value?.id ?: return
+        error.value = null
+        message.value = null
+        viewModelScope.launch {
+            try {
+                when (val result = action(id)) {
+                    is RouteCommandResult.Rejected -> error.value = result.reason
+                    else -> {
+                        savedState["routeSnapshot"] = repository.route.value
+                        savedState["sync"] = repository.route.value?.syncStatus?.name
+                        if (success != null) message.value = success
+                    }
+                }
+            } catch (_: java.io.IOException) { error.value = "Não foi possível salvar. Tente novamente." }
+        }
+    }
+    fun setPreparationCheck(check: PreparationCheck, checked: Boolean) = command { repository.setPreparationCheck(it, check, checked) }
+    fun confirmPreparation() = command("Checklist confirmado nesta demonstração.", repository::confirmPreparation)
+    fun checkCargo(productId: String, checked: Boolean) = command { repository.checkCargo(it, productId, checked) }
+    fun reportCargoIssue(issue: CargoIssue) = command("Divergência salva localmente. Resolva com a equipe do CD antes de receber.") { repository.reportCargoIssue(it, issue) }
+    fun resolveCargoIssue(productId: String) = command("Resolução registrada na demonstração. Confira novamente o produto.") { repository.resolveCargoIssue(it, productId) }
+    fun confirmReceipt() = command("Recebimento confirmado nesta demonstração.", repository::confirmReceipt)
+    fun startRoute() {
+        command("Rota demonstrativa iniciada • sem GPS ou envio ao servidor.") {
+            repository.startRoute(it).also { result -> if (result !is RouteCommandResult.Rejected) nextStop() }
         }
     }
     fun clearMessage() { message.value = null }

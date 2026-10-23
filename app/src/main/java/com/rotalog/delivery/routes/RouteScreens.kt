@@ -32,7 +32,11 @@ fun RoutesScreen(
     onCopy: (Stop) -> String = { "" },
     navigationOpen: Boolean = false,
     routeMap: RouteMap = DemonstrationRouteMap,
-    onProfile: () -> Unit = {}
+    onProfile: () -> Unit = {},
+    onStep: (DepartureStep) -> Unit = {}, onBackStep: () -> Unit = {},
+    onCargoConfirmation: (Boolean) -> Unit = {}, onOpenIssue: () -> Unit = {},
+    onDismissIssue: () -> Unit = {}, onEditIssue: (String?, CargoIssueReason?, String) -> Unit = { _, _, _ -> },
+    onSubmitIssue: () -> Unit = {}, onResolveIssue: (String) -> Unit = {}, onReceive: () -> Unit = {}
 ) {
     val detailsStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     Box(Modifier.fillMaxSize().then(if (state.detailsOpen) Modifier.clearAndSetSemantics {} else Modifier)) {
@@ -50,7 +54,7 @@ fun RoutesScreen(
             }
             state.route.status == RouteStatus.ACTIVE -> ActiveRoute(state, onSelectStop, onDetailsChange, onShowStops, onNextStop, routeMap)
             else -> {
-                AssignedRoute(state, onAccept, onShowStops, onPreparation, onReceipt, onStart)
+                DepartureFlow(state, onAccept, onShowStops, onStart, onStep, onBackStep, onCargoConfirmation, onOpenIssue, onDismissIssue, onEditIssue, onSubmitIssue, onResolveIssue, onReceive)
             }
         }
     }
@@ -59,78 +63,6 @@ fun RoutesScreen(
             StopDetailsLayer(state.route, stop, { onDetailsChange(false) }, onNavigate, onCall, onCopy, navigationOpen)
         }
     }
-}
-
-@Composable
-private fun AssignedRoute(state: RoutesUiState, onAccept: () -> Unit, onShowStops: (String) -> Unit, onPreparation: (String) -> Unit, onReceipt: (String) -> Unit, onStart: () -> Unit) {
-    val route = state.route ?: return
-    var confirm by rememberSaveable { mutableStateOf(false) }
-    var confirmStart by rememberSaveable { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Rotas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-        Text(if (route.status == RouteStatus.ASSIGNED) "Confira sua próxima saída." else "Acompanhe as etapas antes da partida.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        DemoBanner()
-        SectionCard {
-            Text(route.code, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(AppIcons.Calendar, null); Text(route.date) }
-            StatusBadge(route.status.label)
-            AdaptiveGroup {
-                Column { Text("${route.stops.size}", style = MaterialTheme.typography.headlineMedium); Text("Paradas") }
-                Column { Text("${route.deliveryVolumes}", style = MaterialTheme.typography.headlineMedium); Text("Volumes para entrega") }
-            }
-            Text("${route.collectionVolumes} volumes previstos para coleta")
-            HorizontalDivider()
-            when {
-                route.status == RouteStatus.ASSIGNED -> PrimaryAction("Aceitar rota", { confirm = true }, enabled = !state.loading)
-                !route.prepared -> {
-                    Text("Confirme o checklist para liberar a conferência e a partida.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    PrimaryAction(if (route.checklist.isNotEmpty() || route.cargoReceived) "Revisar checklist" else "Preparar saída", { onPreparation(route.id) }, enabled = !state.loading)
-                }
-                !route.cargoReceived -> {
-                    Text("Confira todos os produtos e resolva as divergências antes de receber.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    PrimaryAction("Conferir carga no CD", { onReceipt(route.id) }, enabled = !state.loading)
-                    TextButton(onClick = { onPreparation(route.id) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Consultar checklist") }
-                }
-                else -> {
-                    PrimaryAction("Iniciar rota", { confirmStart = true }, enabled = route.canStart && !state.loading)
-                    TextButton(onClick = { onPreparation(route.id) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Consultar checklist") }
-                }
-            }
-            if (route.cargoReceived) OutlinedButton(onClick = { onReceipt(route.id) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Revisar carga recebida") }
-        }
-        SectionCard {
-            Text("Antes de sair", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            val accepted = route.status != RouteStatus.ASSIGNED
-            Stage("1", "Aceite", if (accepted) "Concluída" else "Atual", accepted)
-            Stage("2", "Checklist", if (route.prepared) "Concluída" else if (accepted) "Atual" else "Pendente", route.prepared)
-            Stage("3", "Conferência", if (route.cargoReceived) "Concluída" else if (route.prepared) "Atual" else "Pendente", route.cargoReceived)
-            Stage("4", "Iniciar", if (route.canStart) "Atual" else "Pendente", false)
-        }
-        SectionCard {
-            Text("Logística da rota", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            route.stops.firstOrNull { it.type == StopType.COLLECTION }?.let { Detail("Origem • ${it.name}", it.address) }
-            route.stops.firstOrNull { it.type == StopType.RETURN }?.let { Detail("Retorno • ${it.name}", it.address) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(AppIcons.Truck, null); Text("Renault Master • PHB-9A23") }
-            OutlinedButton(onClick = { onShowStops(route.id) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Ver lista de paradas") }
-        }
-        SyncNotice(route.syncStatus)
-        state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Spacer(Modifier.height(12.dp))
-    }
-    if (confirmStart) AlertDialog(
-        onDismissRequest = { confirmStart = false }, title = { Text("Iniciar rota demonstrativa?") },
-        text = { Text(modifier = Modifier.verticalScroll(rememberScrollState()), text = "A carga foi recebida e o checklist confirmado. O mapa abrirá na primeira entrega pendente. Esta demonstração não ativa GPS nem envia dados ao servidor.") },
-        confirmButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { confirmStart = false; onStart() }) { Text("Iniciar agora") } },
-        dismissButton = { TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { confirmStart = false }) { Text("Cancelar") } }
-    )
-    if (confirm) AlertDialog(
-        onDismissRequest = { confirm = false },
-        title = { Text("Aceitar ${route.code}?") },
-        text = { Text(modifier = Modifier.verticalScroll(rememberScrollState()), text = "O aceite confirma a atribuição desta rota. Você ainda precisará receber a carga e preparar a saída.") },
-        confirmButton = { TextButton(onClick = { confirm = false; onAccept() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Confirmar aceite") } },
-        dismissButton = { TextButton(onClick = { confirm = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Voltar") } }
-    )
 }
 
 @Composable
@@ -150,19 +82,6 @@ fun StopsScreen(route: Route?, onSelectStop: (String) -> Unit, onBack: () -> Uni
                         Text("${stop.window} • ${stop.volumes} volumes")
                         Text("Ver detalhes", color = MaterialTheme.colorScheme.primary)
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Stage(number: String, title: String, subtitle: String, complete: Boolean) {
-    Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small) {
-        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (complete) Icon(AppIcons.Check, null, tint = MaterialTheme.colorScheme.primary)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("$number. $title", fontWeight = FontWeight.SemiBold)
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

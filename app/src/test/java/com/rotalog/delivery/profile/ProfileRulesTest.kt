@@ -47,9 +47,9 @@ class ProfileRulesTest {
         val repo = DemoRouteRepository()
         val vm = RoutesViewModel(repo, repo, SavedStateHandle())
         vm.acceptRoute()
-        vm.setPreparationCheck(PreparationCheck.FUEL, true)
+        vm.setCargoConfirmation(true)
         vm.selectScenario(DemoScenario.ASSIGNED)
-        assertEquals(setOf(PreparationCheck.FUEL), repo.route.value!!.checklist)
+        assertEquals(repo.route.value!!.manifest.map { it.productId }.toSet(), repo.route.value!!.checkedCargo)
         vm.resetScenario()
         assertEquals(DemoRoutes.assigned(), repo.route.value)
     }

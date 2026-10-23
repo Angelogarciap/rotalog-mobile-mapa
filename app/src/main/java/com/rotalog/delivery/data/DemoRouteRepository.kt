@@ -23,7 +23,7 @@ class DemoRouteRepository : RouteRepository, DemoScenarioController {
     private fun updateAssigned(routeId: String, change: (Route) -> RouteCommandResult): RouteCommandResult {
         val route = currentRoute.value
         if (route == null || route.id != routeId) return RouteCommandResult.Rejected("Esta rota não está disponível.")
-        if (route.status != RouteStatus.ACCEPTED) return RouteCommandResult.Rejected("Aceite a rota antes de preparar a saída.")
+        if (route.status != RouteStatus.ACCEPTED) return RouteCommandResult.Rejected("Aceite a rota antes de conferir a carga.")
         return change(route)
     }
     private fun save(route: Route): RouteCommandResult {
@@ -41,10 +41,17 @@ class DemoRouteRepository : RouteRepository, DemoScenarioController {
             else -> save(route.copy(prepared = true))
         }
     }
+    override suspend fun setCargoConfirmation(routeId: String, checked: Boolean) = updateAssigned(routeId) { route ->
+        when {
+            route.cargoReceived -> RouteCommandResult.Rejected("O recebimento já foi confirmado; a carga está disponível para consulta.")
+            route.manifest.isEmpty() -> RouteCommandResult.Rejected("O manifesto está vazio.")
+            checked && route.openCargoIssues.isNotEmpty() -> RouteCommandResult.Rejected("Resolva as divergências e confira novamente a carga.")
+            else -> save(route.copy(checkedCargo = if (checked) route.manifest.map { it.productId }.toSet() else emptySet()))
+        }
+    }
     override suspend fun checkCargo(routeId: String, productId: String, checked: Boolean) = updateAssigned(routeId) { route ->
         when {
             route.cargoReceived -> RouteCommandResult.Rejected("O recebimento já foi confirmado; a conferência está disponível para consulta.")
-            !route.prepared -> RouteCommandResult.Rejected("Conclua o checklist antes de conferir a carga.")
             route.manifest.none { it.productId == productId } -> RouteCommandResult.Rejected("Produto fora do manifesto.")
             route.openCargoIssues.any { it.productId == productId } && checked -> RouteCommandResult.Rejected("Resolva a divergência deste produto antes de conferir.")
             else -> save(route.copy(checkedCargo = if (checked) route.checkedCargo + productId else route.checkedCargo - productId))
@@ -52,22 +59,22 @@ class DemoRouteRepository : RouteRepository, DemoScenarioController {
     }
     override suspend fun reportCargoIssue(routeId: String, issue: CargoIssue) = updateAssigned(routeId) { route ->
         when {
-            !route.prepared || route.cargoReceived -> RouteCommandResult.Rejected("Registre divergências durante a conferência, antes do recebimento.")
+            route.cargoReceived -> RouteCommandResult.Rejected("Registre divergências durante a conferência, antes do recebimento.")
             route.manifest.none { it.productId == issue.productId } -> RouteCommandResult.Rejected("Produto fora do manifesto.")
             issue.note.length > 500 -> RouteCommandResult.Rejected("Use até 500 caracteres nas observações.")
-            else -> save(route.copy(cargoIssues = route.cargoIssues.filterNot { it.productId == issue.productId } + issue.copy(note = issue.note.trim(), resolved = false), checkedCargo = route.checkedCargo - issue.productId))
+            else -> save(route.copy(cargoIssues = route.cargoIssues.filterNot { it.productId == issue.productId } + issue.copy(note = issue.note.trim(), resolved = false), checkedCargo = emptySet()))
         }
     }
     override suspend fun resolveCargoIssue(routeId: String, productId: String) = updateAssigned(routeId) { route ->
         when {
             route.cargoReceived || route.openCargoIssues.none { it.productId == productId } -> RouteCommandResult.Rejected("Não há divergência aberta para este produto.")
-            else -> save(route.copy(cargoIssues = route.cargoIssues.map { if (it.productId == productId) it.copy(resolved = true) else it }))
+            else -> save(route.copy(cargoIssues = route.cargoIssues.map { if (it.productId == productId) it.copy(resolved = true) else it }, checkedCargo = emptySet()))
         }
     }
     override suspend fun confirmReceipt(routeId: String) = updateAssigned(routeId) { route ->
         when {
             route.cargoReceived -> RouteCommandResult.AlreadyApplied
-            !route.canReceive -> RouteCommandResult.Rejected("Conclua o checklist, confira todos os produtos e resolva as divergências.")
+            !route.canReceive -> RouteCommandResult.Rejected("Confira toda a carga e resolva as divergências.")
             else -> save(route.copy(cargoReceived = true, stops = route.stops.map {
                 if (it.type == StopType.COLLECTION) it.copy(status = StopStatus.COMPLETED) else it
             }))
@@ -77,7 +84,7 @@ class DemoRouteRepository : RouteRepository, DemoScenarioController {
         val route = currentRoute.value
         if (route?.id == routeId && route.status == RouteStatus.ACTIVE) return RouteCommandResult.AlreadyApplied
         return updateAssigned(routeId) {
-            if (!it.canStart) RouteCommandResult.Rejected("Confirme o preparo e o recebimento antes de iniciar.")
+            if (!it.canStart) RouteCommandResult.Rejected("Confirme o recebimento antes de iniciar.")
             else save(it.copy(status = RouteStatus.ACTIVE))
         }
     }
@@ -149,13 +156,13 @@ object DemoRoutes {
 
     fun assigned() = Route("assigned-mao-042", "ROTA-MAO-042", "22/10/2026", RouteStatus.ASSIGNED, false, false, stops())
     private fun withConfirmedLoading(route: Route) = route.copy(
-        checklist = PreparationCheck.entries.toSet(), checkedCargo = route.manifest.map { it.productId }.toSet()
+        checkedCargo = route.manifest.map { it.productId }.toSet()
     )
-    fun active() = withConfirmedLoading(Route("demo-active-mao-042", "ROTA-MAO-042", "22/10/2026", RouteStatus.ACTIVE, true, true,
+    fun active() = withConfirmedLoading(Route("demo-active-mao-042", "ROTA-MAO-042", "22/10/2026", RouteStatus.ACTIVE, true, false,
         stops().map { if (it.sequence <= 2) it.copy(status = StopStatus.COMPLETED) else it }))
 
     fun history(): List<Route> = listOf(
-        withConfirmedLoading(Route("history-mao-041", "ROTA-MAO-041", "21/10/2026", RouteStatus.COMPLETED, true, true,
+        withConfirmedLoading(Route("history-mao-041", "ROTA-MAO-041", "21/10/2026", RouteStatus.COMPLETED, true, false,
             stops().map { it.copy(id = "previous-${it.id}", status = StopStatus.COMPLETED) }, SyncStatus.CONFIRMED))
     )
 }

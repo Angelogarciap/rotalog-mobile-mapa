@@ -19,7 +19,14 @@ import org.junit.runner.RunWith
 class ReviewScreensTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private fun click(text: String) = compose.onNode(hasText(text) and hasClickAction()).performClick()
-    private fun scrollClick(text: String) = compose.onNodeWithText(text).performScrollTo().performClick()
+    private fun scrollClick(text: String) {
+        val demoControls = com.rotalog.delivery.model.DemoScenario.entries.map { it.label } +
+            com.rotalog.delivery.model.SyncStatus.entries.map { it.label } + "Reiniciar cenário atual"
+        if (text in demoControls && compose.onAllNodesWithText("Reiniciar cenário atual").fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithText("Ambiente de demonstração").performScrollTo().performClick()
+        }
+        compose.onNodeWithText(text).performScrollTo().performClick()
+    }
     private fun capture(name: String) {
         compose.waitForIdle()
         SystemClock.sleep(100) // Let the device render thread present the settled frame.

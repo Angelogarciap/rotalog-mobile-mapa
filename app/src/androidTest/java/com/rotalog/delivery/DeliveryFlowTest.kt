@@ -26,7 +26,14 @@ class DeliveryFlowTest {
     }
     private val container get() = (compose.activity.application as RotalogApplication).container
     private fun click(label: String) = compose.onNode(hasText(label) and hasClickAction()).performClick()
-    private fun scrollClick(label: String) = compose.onNodeWithText(label).performScrollTo().performClick()
+    private fun scrollClick(label: String) {
+        val demoControls = com.rotalog.delivery.model.DemoScenario.entries.map { it.label } +
+            com.rotalog.delivery.model.SyncStatus.entries.map { it.label } + "Reiniciar cenário atual"
+        if (label in demoControls && compose.onAllNodesWithText("Reiniciar cenário atual").fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithText("Ambiente de demonstração").performScrollTo().performClick()
+        }
+        compose.onNodeWithText(label).performScrollTo().performClick()
+    }
     private fun activeDemo() {
         click("Perfil")
         scrollClick("Rota ativa demonstrativa")

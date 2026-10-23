@@ -10,7 +10,7 @@ Aplicativo Android nativo para o motorista do marketplace B2B RotaLog. A versão
 - **Rota ativa demonstrativa:** oito paradas na ordem da operação, mapa ilustrativo nativo, progresso, lista e painel arrastável com detalhes, contato e produtos.
 - **Ações externas:** escolha de Google Maps, Waze ou copiar endereço; chamada pelo discador. Aplicativos ausentes recebem mensagem e alternativa de copiar o endereço.
 - **Histórico:** uma rota anterior fictícia concluída, independente da rota atual.
-- **Perfil:** identidade demonstrativa, tema do aparelho/claro/escuro, três cenários e seis estados de envio simulados.
+- **Perfil:** identidade demonstrativa e veículo em cards próprios, opções visuais de tema do aparelho/claro/escuro e seção **Ambiente de demonstração**, inicialmente recolhida, com resumo do cenário e envio simulado. Abra a seção para acessar os três cenários, reinício e seis estados de envio. Expansão e rolagem são restauradas ao recriar a Activity e retornar à aba; os temas ficam empilhados abaixo de 360 dp ou com fonte a partir de 150%.
 
 Ao abrir, o aplicativo apresenta **Entrar na sua conta**. O botão **Entrar** valida os campos e informa que a autenticação está indisponível; nenhum dado é enviado e nenhuma sessão autenticada é criada. **Esqueci minha senha** orienta procurar a operação, sem simular envio de e-mail. Use **Explorar demonstração** para acessar o cenário padrão **Rota atribuída**. Aceitar a rota apenas confirma o aceite: não recebe mercadorias, prepara o veículo, inicia rota ou coleta localização. No Perfil, **Rota ativa demonstrativa** carrega um exemplo independente, com duas de oito paradas concluídas. Selecionar uma parada nunca altera seu estado operacional.
 
@@ -46,9 +46,9 @@ APK: [`app/build/outputs/apk/debug/app-debug.apk`](app/build/outputs/apk/debug/a
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-Os testes cobrem aceite repetido, bloqueios de preparação/recebimento/partida, conferência integral, divergências e rechecagem, restauração do checklist e formulário, isolamento de cenários, totais, próxima parada, seleção, recriação, temas, envio simulado e contratos de intents com aplicações ausentes. A CI executa build, testes unitários e lint na raiz; publica APK e relatórios como artifacts. Os testes instrumentados são executados localmente no AVD com KVM.
+Os testes cobrem aceite repetido, bloqueios de preparação/recebimento/partida, conferência integral, divergências e rechecagem, restauração do checklist e formulário, isolamento de cenários, totais, próxima parada, seleção, recriação, temas, expansão/recolhimento e restauração do Perfil, seleção acessível e adaptação das opções de tema, envio simulado e contratos de intents com aplicações ausentes. A CI executa build, testes unitários e lint na raiz; publica APK e relatórios como artifacts. Os testes instrumentados são executados localmente no AVD com KVM.
 
-Consulte a validação do login em [docs/LOGIN-VALIDATION.md](docs/LOGIN-VALIDATION.md), o registro operacional em [docs/LOADING-VALIDATION.md](docs/LOADING-VALIDATION.md) e o histórico da primeira entrega em [docs/VALIDATION.md](docs/VALIDATION.md).
+Consulte a validação do Perfil em [docs/PROFILE-VALIDATION.md](docs/PROFILE-VALIDATION.md), a validação do login em [docs/LOGIN-VALIDATION.md](docs/LOGIN-VALIDATION.md), o registro operacional em [docs/LOADING-VALIDATION.md](docs/LOADING-VALIDATION.md) e o histórico da primeira entrega em [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Arquitetura
 

@@ -6,14 +6,25 @@
 .idea/workspace.xml
 .idea/navEditor.xml
 .idea/assetWizardSettings.xml
+.idea/.name
+.idea/deviceManager.xml
+.idea/deploymentTargetSelector.xml
 
 # Gradle
+.kotlin/
 .gradle/
 build/
 **/build/
 
 # Local configuration
 local.properties
+.env
+.env.*
+!.env.example
+!.env.sample
+keystore.properties
+*.jks
+*.keystore
 
 # Native build
 .externalNativeBuild/
@@ -21,6 +32,11 @@ local.properties
 
 # Android
 captures/
+*.apk
+*.aab
+*.hprof
+*.log
 
 # macOS
 .DS_Store
+Thumbs.db

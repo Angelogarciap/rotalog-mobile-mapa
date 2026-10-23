@@ -1,54 +1,39 @@
-name: CI
+name: Android CI
 
 on:
   workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
-  ci:
-    name: React Native com Android
+  android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
-      - name: Obter código-fonte
-        uses: actions/checkout@v7
-
-      - name: Configurar Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Configurar Java 17
+      - name: Obter código
+        uses: actions/checkout@v4
+      - name: Configurar JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
-          cache: gradle
-
-      - name: Instalar dependências
-        run: npm ci
-
-      - name: Preparar Gradle Wrapper
-        run: chmod +x android/gradlew
-
-      - name: Executar lint do TypeScript
-        run: npm run lint
-
-      - name: Executar lint do Android
-        working-directory: android
-        run: ./gradlew lint --no-daemon
-
-      - name: Executar testes do TypeScript
-        run: npm test -- --watchAll=false
-
-      - name: Executar testes do Android
-        working-directory: android
-        run: ./gradlew testDebugUnitTest --no-daemon
-
-      - name: Executar build do Android
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+          java-version: '25'
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Instalar SDK
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
+      - name: Configurar cache Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build, testes e lint
+        run: ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --no-daemon
+      - name: Guardar APK e relatórios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-and-reports
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/reports/

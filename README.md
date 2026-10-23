@@ -1,9 +1,10 @@
 # RotaLog Entregador
 
-Aplicativo Android nativo para o motorista do marketplace B2B RotaLog. A versão 1.1 contém uma demonstração operacional com Kotlin, Jetpack Compose e Material 3.
+Aplicativo Android nativo para o motorista do marketplace B2B RotaLog. A versão 1.2 contém uma demonstração operacional com Kotlin, Jetpack Compose e Material 3.
 
 ## O que está implementado
 
+- **Login:** tela inicial baseada nos protótipos claro e escuro do Stitch, validação local de e-mail/senha, mostrar/ocultar senha e orientação de recuperação. Autenticação ainda não conectada; **Explorar demonstração** abre os dados fictícios sem usar credenciais.
 - **Rotas:** rota atribuída, confirmação explícita de aceite, checklist com quatro itens e conferência física por produto.
 - **Recebimento no CD:** manifesto de oito produtos / 70 volumes, divergências locais, resolução explícita e confirmação de recebimento. O início é uma ação separada, liberada somente após checklist e recebimento.
 - **Rota ativa demonstrativa:** oito paradas na ordem da operação, mapa ilustrativo nativo, progresso, lista e painel arrastável com detalhes, contato e produtos.
@@ -11,7 +12,7 @@ Aplicativo Android nativo para o motorista do marketplace B2B RotaLog. A versão
 - **Histórico:** uma rota anterior fictícia concluída, independente da rota atual.
 - **Perfil:** identidade demonstrativa, tema do aparelho/claro/escuro, três cenários e seis estados de envio simulados.
 
-Ao abrir, o cenário padrão é **Rota atribuída**. Aceitar a rota apenas confirma o aceite: não recebe mercadorias, prepara o veículo, inicia rota ou coleta localização. No Perfil, **Rota ativa demonstrativa** carrega um exemplo independente, com duas de oito paradas concluídas. Selecionar uma parada nunca altera seu estado operacional.
+Ao abrir, o aplicativo apresenta **Entrar na sua conta**. O botão **Entrar** valida os campos e informa que a autenticação está indisponível; nenhum dado é enviado e nenhuma sessão autenticada é criada. **Esqueci minha senha** orienta procurar a operação, sem simular envio de e-mail. Use **Explorar demonstração** para acessar o cenário padrão **Rota atribuída**. Aceitar a rota apenas confirma o aceite: não recebe mercadorias, prepara o veículo, inicia rota ou coleta localização. No Perfil, **Rota ativa demonstrativa** carrega um exemplo independente, com duas de oito paradas concluídas. Selecionar uma parada nunca altera seu estado operacional.
 
 Para percorrer o fluxo inspirado no Stitch: **Aceitar rota → Preparar saída → marcar os quatro itens → Confirmar checklist → Avançar para conferência → conferir os oito produtos → Confirmar recebimento da carga → Voltar à rota para iniciar → Iniciar rota**. As três confirmações (aceite, recebimento e partida) são explícitas.
 
@@ -47,7 +48,7 @@ APK: [`app/build/outputs/apk/debug/app-debug.apk`](app/build/outputs/apk/debug/a
 
 Os testes cobrem aceite repetido, bloqueios de preparação/recebimento/partida, conferência integral, divergências e rechecagem, restauração do checklist e formulário, isolamento de cenários, totais, próxima parada, seleção, recriação, temas, envio simulado e contratos de intents com aplicações ausentes. A CI executa build, testes unitários e lint na raiz; publica APK e relatórios como artifacts. Os testes instrumentados são executados localmente no AVD com KVM.
 
-Consulte o registro atual em [docs/LOADING-VALIDATION.md](docs/LOADING-VALIDATION.md) e o histórico da primeira entrega em [docs/VALIDATION.md](docs/VALIDATION.md).
+Consulte a validação do login em [docs/LOGIN-VALIDATION.md](docs/LOGIN-VALIDATION.md), o registro operacional em [docs/LOADING-VALIDATION.md](docs/LOADING-VALIDATION.md) e o histórico da primeira entrega em [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Arquitetura
 
@@ -60,13 +61,14 @@ com.rotalog.delivery/
   model/                 # rotas, paradas, itens e estados independentes
   data/                  # contratos, fixtures e DataStore
   routes/                # ViewModel + StateFlow, telas e mapa Canvas
+  login/                 # formulário local + ViewModel/StateFlow, sem autenticação
   history/               # histórico demonstrativo
   profile/               # preferências e controles da demonstração
   shared/                # componentes, vetores e intents Android
   ui/theme/              # paletas fixas, Inter, formas e espaçamento
 ```
 
-O `RoutesViewModel` pertence ao grafo principal e é compartilhado entre Rotas, lista de paradas e controles do Perfil. A navegação transporta apenas `routeId`. `SavedStateHandle` restaura cenário, seleção, expansão, estado da rota, checklist, conferência, divergências e envio em recriação; a navegação e a rolagem usam a restauração do Compose. O repositório demonstrativo permanece na memória da aplicação. **Somente a preferência de tema tem persistência durável**, em DataStore; encerrar o processo retorna a operação à demonstração padrão. Não existe fila offline real.
+O `RoutesViewModel` pertence ao grafo principal e é compartilhado entre Rotas, lista de paradas e controles do Perfil. A navegação transporta apenas `routeId`. `SavedStateHandle` restaura cenário, seleção, expansão, estado da rota, checklist, conferência, divergências e envio em recriação; a navegação e a rolagem usam a restauração do Compose. O repositório demonstrativo permanece na memória da aplicação. **Somente a preferência de tema tem persistência durável**, em DataStore; encerrar o processo retorna a operação à demonstração padrão. Não existe fila offline real. No login, e-mail e escolha de explorar a demonstração são restaurados com a tarefa via `SavedStateHandle`. A senha e sua visibilidade ficam somente no ViewModel: sobrevivem à rotação, mas não são gravadas no estado salvo e são apagadas ao explorar a demonstração.
 
 Os seis estados de envio (salvo no aparelho, aguardando, enviando, confirmado, falha e conflito) são escolhidos manualmente no Perfil e identificados como simulados. Não há confirmação automática por conectividade ou temporizador. “Confirmado” não muda a situação operacional da rota.
 
@@ -74,7 +76,7 @@ Versões de referência preservadas: AGP 9.4.1, Gradle 9.6.0, Kotlin 2.2.10, Com
 
 ## Limites e próxima entrega
 
-Não há backend, autenticação, evidências digitais, ocorrências de entrega, devoluções, encerramento, mapas reais ou rastreamento. Checklist, conferência, divergências no CD e partida funcionam somente na demonstração. O histórico não fornece comprovantes reais. Telefone e identidade são fictícios.
+A tela de login está implementada, mas não há backend, autenticação real, evidências digitais, ocorrências de entrega, devoluções, encerramento, mapas reais ou rastreamento. Checklist, conferência, divergências no CD e partida funcionam somente na demonstração. O histórico não fornece comprovantes reais. Telefone e identidade são fictícios.
 
 A próxima etapa é **execução da entrega na parada** (início da tentativa e registro do resultado), seguida da integração com o contrato canônico OpenAPI do backend. Não são necessárias credenciais externas nesta demonstração.
 

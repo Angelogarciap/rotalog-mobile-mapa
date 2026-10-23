@@ -22,7 +22,9 @@ class LoadingFlowTest {
     private val container get() = (compose.activity.application as RotalogApplication).container
     private fun click(label: String) = compose.onNode(hasText(label) and hasClickAction()).performClick()
     private fun scrollClick(label: String) = compose.onNodeWithText(label).performScrollTo().performClick()
-    @Before fun reset() { compose.runOnIdle { container.routes.selectScenario(DemoScenario.ASSIGNED) } }
+    @Before fun reset() {
+        compose.onNodeWithText("Explorar demonstração").performScrollTo().performClick()
+        compose.runOnIdle { container.routes.selectScenario(DemoScenario.ASSIGNED) } }
     private fun prepare() {
         scrollClick("Aceitar rota"); click("Confirmar aceite")
         scrollClick("Preparar saída")

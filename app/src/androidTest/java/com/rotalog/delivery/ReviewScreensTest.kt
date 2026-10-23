@@ -37,6 +37,7 @@ class ReviewScreensTest {
     }
 
     @Test fun reviewScreensInBothThemesAndKeepSelectedMarkerVisible() {
+        compose.onNodeWithText("Explorar demonstração").performScrollTo().performClick()
         // The preceding flow copies an address. Let Android's clipboard overlay dismiss.
         SystemClock.sleep(6_500)
         for (theme in listOf("Claro", "Escuro")) {

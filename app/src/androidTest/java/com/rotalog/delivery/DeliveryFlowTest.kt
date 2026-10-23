@@ -21,6 +21,7 @@ import org.junit.runner.RunWith
 class DeliveryFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     @Before fun resetDemo() {
+        compose.onNodeWithText("Explorar demonstração").performScrollTo().performClick()
         compose.runOnIdle { container.routes.selectScenario(DemoScenario.ASSIGNED) }
     }
     private val container get() = (compose.activity.application as RotalogApplication).container

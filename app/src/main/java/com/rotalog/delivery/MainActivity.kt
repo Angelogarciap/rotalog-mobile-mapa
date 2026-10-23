@@ -25,6 +25,8 @@ import androidx.navigation.*
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
+import com.rotalog.delivery.login.LoginScreen
+import com.rotalog.delivery.login.LoginViewModel
 import com.rotalog.delivery.history.HistoryScreen
 import com.rotalog.delivery.model.*
 import com.rotalog.delivery.profile.ProfileScreen
@@ -59,7 +61,16 @@ fun RotalogApp(container: AppContainer) {
         if (theme == null) {
             Surface(Modifier.fillMaxSize()) { Box(Modifier.safeDrawingPadding()) { CircularProgressIndicator() } }
         } else {
-            AppNavigation(container, settings, theme!!)
+            val login: LoginViewModel = viewModel(factory = viewModelFactory {
+                initializer { LoginViewModel(createSavedStateHandle()) }
+            })
+            val loginState by login.uiState.collectAsStateWithLifecycle()
+            if (loginState.exploringDemo) {
+                AppNavigation(container, settings, theme!!)
+            } else {
+                LoginScreen(loginState, login::setEmail, login::setPassword, login::togglePassword,
+                    login::submit, login::recoverPassword, login::exploreDemo)
+            }
         }
     }
 }

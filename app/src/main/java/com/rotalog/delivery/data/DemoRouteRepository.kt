@@ -154,11 +154,7 @@ object DemoRoutes {
             Stop("educandos", 8, StopType.DELIVERY, StopStatus.PENDING, "Atacadão Educandos",
                 "Av. Leopoldo Peres, 600 - Educandos, Manaus - AM", "Doca de recebimento", "18:50 – 19:20",
                 "Marcos • recebimento", "+5592900000000", "Apresentar a nota fiscal na doca de recebimento e aguardar a conferência.", items("mercearia", 7),
-                latitude = -3.1400, longitude = -60.0000),
-            Stop("taruma", 9, StopType.RETURN, StopStatus.PENDING, "Retorno Garagem Tarumã",
-                "Av. do Turismo, 400 - Tarumã, Manaus - AM", "Portaria da garagem", "19:45",
-                "Equipe da base", "+5592900000000", "Apresentar-se à equipe da base para os procedimentos de retorno.", emptyList(),
-                latitude = -3.0500, longitude = -60.0700)
+                latitude = -3.1400, longitude = -60.0000)
         )
 
 

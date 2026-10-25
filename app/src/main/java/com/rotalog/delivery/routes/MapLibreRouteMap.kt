@@ -58,8 +58,7 @@ private fun MapaMapLibre(
 ) {
     val ordenadas = remember(stops) { stops.sortedBy { it.sequence } }
     val linha = ordenadas.map { it.pos() }
-    // o CD (coleta) é o ponto azul do motorista: aparece no mapa, mas sem número
-    // e não conta como parada de entrega
+    // o CD (coleta) é sempre o ponto azul e é a parada 1; as entregas ficam cinza/verde/laranja
     val cd = ordenadas.filter { it.type == StopType.COLLECTION }.map { it.pos() }
     val entregas = ordenadas.filter { it.type != StopType.COLLECTION }
     val concluidas = entregas.filter { it.status == StopStatus.COMPLETED }.map { it.pos() }
@@ -68,8 +67,8 @@ private fun MapaMapLibre(
         it.status != StopStatus.COMPLETED && it.id != nextStopId
     }.map { it.pos() }
     val selecionada = ordenadas.filter { it.id == selectedStopId }.map { it.pos()}
-    // número de cada entrega no mapa: 1, 2, 3... na ordem da rota (sem contar o CD)
-    val numeradas = entregas.mapIndexed { i, parada -> parada.pos() to i + 1 }
+    // número de cada parada no mapa = a ordem (sequence) da parada na rota (o CD é a 1)
+    val numeradas = ordenadas.map { it.pos() to it.sequence }
 
     val posicao = rememberPosicaoEntregador()
 
@@ -133,7 +132,7 @@ private fun MapaMapLibre(
         CircleLayer(id = "proxima", source = fonteProxima,
             color = const(Color(0xFFE8590C)), radius = const(12.dp),
             strokeColor = const(Color.White), strokeWidth = const(3.dp))
-        // CD: ponto azul do motorista, sem número
+        // CD: ponto azul, parada 1
         CircleLayer(id = "cd", source = fonteCd,
             color = const(Color(0xFF2563EB)), radius = const(12.dp),
             strokeColor = const(Color.White), strokeWidth = const(3.dp))

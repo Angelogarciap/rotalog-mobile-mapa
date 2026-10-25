@@ -4,9 +4,9 @@ Os testes unitários (`app/src/test`) e instrumentados (`app/src/androidTest`) u
 
 | Seção | Sufixo do pacote | Unitários | Instrumentados |
 | --- | --- | --- | --- |
-| Login | `login` | `LoginViewModelTest` | `LoginFlowTest` |
+| Login | `login` | `LoginViewModelTest` | `LoginFlowTest`, `LoginAccessibilityTest` |
 | Rotas e paradas | `routes` | `RouteRulesTest` | `RouteFlowTest`, `RouteReviewTest`, `StopDetailsTest` |
-| Preparação e recebimento | `loading` | `LoadingRulesTest` | `LoadingFlowTest` |
+| Etapas e recebimento | `loading` | `LoadingRulesTest`, `DepartureStateTest` | `LoadingFlowTest`, `LegacyDepartureRedirectTest` |
 | Histórico | `history` | `HistoryRulesTest` | `HistoryFlowTest`, `HistoryConsultationTest` |
 | Perfil e controles demonstrativos | `profile` | `ProfileRulesTest` | `ProfileFlowTest`, `ProfileReviewTest` |
 
@@ -23,7 +23,7 @@ Execute somente os testes da seção alterada e das dependências ou fluxos rela
   -Pandroid.testInstrumentationRunnerArguments.package=com.rotalog.delivery.profile
 ```
 
-Para Login, Rotas, Histórico ou Preparação/recebimento, substitua `profile` pelo sufixo da tabela **nos dois comandos**. O Gradle ainda pode compilar fontes compartilhadas; os filtros limitam a execução dos testes.
+Para Login, Rotas, Histórico ou Etapas/recebimento, substitua `profile` pelo sufixo da tabela **nos dois comandos**. O Gradle ainda pode compilar fontes compartilhadas; os filtros limitam a execução dos testes.
 
 Para uma iteração menor, filtre uma classe ou método:
 
@@ -48,13 +48,17 @@ Depois das iterações red → green → refactor nas suítes afetadas, execute 
 
 Repita as suítes necessárias somente se houver novas alterações, falhas ou dúvidas não resolvidas. Mudanças compartilhadas (tema, navegação, modelos, repositórios) exigem as seções afetadas durante o desenvolvimento. Os testes instrumentados devem continuar cobrindo os fluxos de integração necessários: abrir uma aba ou explorar a demonstração para preparar um teste não executa a suíte inteira daquela seção.
 
+Execute um pacote ou classe por invocação: a tentativa de listar vários retornou somente o primeiro conjunto nesta revisão. Confira as classes no XML antes de contabilizar a cobertura.
+
+Nesta revisão, as invocações instrumentadas usaram `--no-configuration-cache` e a lista de classes dos XMLs foi conferida para assegurar a aplicação do filtro solicitado; as execuções finais não usam filtros.
+
 Use os requisitos de ambiente do README. Para interface/fluxo, valide as seções afetadas com KVM, nos dois temas, em tela pequena e fonte 200%; teclado quando aplicável. Relatórios ficam em `app/build/reports/tests/testDebugUnitTest/` e `app/build/reports/androidTests/connected/debug/`. Os relatórios padrão são substituídos pela execução seguinte: copie evidências relevantes para `app/build/review/` antes de executar outro filtro.
 
 ## Organização da cobertura
 
-- Login conserva validação, privacidade das credenciais, recuperação honesta, recriação e revisão com teclado.
+- Login cobre identificador vazio/alfanumérico/numérico/telefone, indisponibilidade sem sessão, entrada demonstrativa separada, restauração, revisão com teclado, contraste de textos de pelo menos 4,5:1 nos dois temas, rótulo fixo e ordem de foco com Tab/Shift+Tab.
 - Rotas conserva aceite, mapa/lista, seleção, painel, volumes/progresso e ações externas. Dados demonstrativos e tema são preparados diretamente pelos repositórios/preferências nos testes dessa seção.
-- Preparação/recebimento conserva checklist, divergências, reconferência, recebimento, partida e restauração; a partida permanece aqui como integração do fluxo de carregamento.
+- Etapas/recebimento cobre navegação entre três etapas, declaração global, divergências, nova conferência, recebimento, partida, migração e restauração; a partida permanece aqui como integração do fluxo de carregamento.
 - Histórico tem suas próprias verificações do registro concluído, progresso e isolamento da rota atual, além da revisão nos dois temas.
 - Perfil concentra temas, expansão, rolagem, restauração, cenários, reinício e envio simulado. As asserções operacionais de independência dos controles continuam nessa suíte.
 

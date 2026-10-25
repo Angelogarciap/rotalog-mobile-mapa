@@ -29,9 +29,9 @@ data class Route(
 ) : java.io.Serializable {
     val manifest: List<StopItem> get() = stops.filter { it.type == StopType.COLLECTION }.flatMap { it.items }
     val openCargoIssues: List<CargoIssue> get() = cargoIssues.filterNot { it.resolved }
-    val canReceive: Boolean get() = status == RouteStatus.ACCEPTED && prepared && manifest.isNotEmpty() &&
+    val canReceive: Boolean get() = status == RouteStatus.ACCEPTED && manifest.isNotEmpty() &&
         manifest.all { it.productId in checkedCargo } && openCargoIssues.isEmpty()
-    val canStart: Boolean get() = status == RouteStatus.ACCEPTED && prepared && cargoReceived && openCargoIssues.isEmpty()
+    val canStart: Boolean get() = status == RouteStatus.ACCEPTED && cargoReceived && openCargoIssues.isEmpty()
     val completedStops: Int get() = stops.count { it.status == StopStatus.COMPLETED }
     val nextStop: Stop? get() = stops.sortedBy { it.sequence }.firstOrNull { it.status == StopStatus.PENDING }
     val deliveryVolumes: Int get() = stops.filter { it.type == StopType.DELIVERY }.sumOf { it.volumes }

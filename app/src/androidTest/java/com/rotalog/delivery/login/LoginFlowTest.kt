@@ -1,24 +1,19 @@
 package com.rotalog.delivery.login
 
-import com.rotalog.delivery.shared.captureScrollPages
-import android.content.ContentValues
-import android.graphics.Bitmap
-import android.os.SystemClock
-import android.provider.MediaStore
-import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
+import androidx.compose.ui.unit.dp
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import com.rotalog.delivery.MainActivity
 import com.rotalog.delivery.RotalogApplication
 import com.rotalog.delivery.model.ThemeMode
+import com.rotalog.delivery.shared.captureFrame
+import com.rotalog.delivery.shared.captureScrollPages
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,98 +22,77 @@ import org.junit.runner.RunWith
 class LoginFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private fun click(text: String) = compose.onNodeWithText(text).performScrollTo().performClick()
+    private val unavailable = "Acesso indisponível nesta versão. Nenhum dado foi enviado."
 
-    private fun assertRenderedPassword(expected: String) {
-        val layouts = mutableListOf<TextLayoutResult>()
-        compose.onNodeWithTag("login-password").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-        assertTrue(layouts.isNotEmpty())
-        assertEquals(expected, layouts.first().layoutInput.text.text)
+    @Test fun brandAndIntroductionFormOneCompactComposition() {
+        val brand = compose.onNodeWithText("Entregador").getUnclippedBoundsInRoot()
+        val title = compose.onNodeWithText("Acesso do motorista").getUnclippedBoundsInRoot()
+        assertTrue("Cabeçalho e apresentação devem estar próximos (até 96 dp)",
+            title.top - brand.bottom <= 96.dp)
+        compose.onNodeWithTag("login-identifier").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Explorar demonstração").performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun startsAtLoginAndValidatesWithoutAuthenticating() {
-        compose.onNodeWithText("Entrar na sua conta").assertExists()
-        compose.onNodeWithText("Rotas").assertDoesNotExist()
-        click("Entrar")
-        compose.onNodeWithText("Informe um e-mail válido.").assertExists()
-        compose.onNodeWithText("Digite sua senha.").assertExists()
-        compose.onNodeWithTag("login-email").performScrollTo().performTextInput("nome@")
-        compose.onNodeWithTag("login-password").performScrollTo().performTextInput("segredo")
-        closeSoftKeyboard()
-        click("Entrar")
-        compose.onNodeWithText("Informe um e-mail válido.").assertExists()
-        compose.onNodeWithTag("login-email").performScrollTo().performTextReplacement("entregador@exemplo.com")
-        closeSoftKeyboard()
-        compose.onNodeWithText("Informe um e-mail válido.").assertDoesNotExist()
-        click("Entrar")
-        compose.onNodeWithText("Autenticação indisponível nesta versão. Nenhum dado foi enviado.").assertExists()
-        compose.onNodeWithText("Rotas").assertDoesNotExist()
+    @Test fun driverAccessHasOneIdentifierFieldAndNoPasswordControls() {
+        compose.onNodeWithText("Acesso do motorista").assertExists()
+        compose.onNodeWithTag("login-identifier").assertExists()
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(1)
+        compose.onNodeWithText("Senha").assertDoesNotExist()
+        compose.onNodeWithText("E-mail").assertDoesNotExist()
+        compose.onNodeWithText("Esqueci minha senha").assertDoesNotExist()
+        compose.onNodeWithText("Entrar no RotaLog").assertExists()
     }
 
-    @Test fun passwordVisibilityAndRecreationKeepCredentialsPrivate() {
-        compose.onNodeWithTag("login-email").performScrollTo().performTextInput("entregador@exemplo.com")
-        compose.onNodeWithTag("login-password").performScrollTo().performTextInput("segredo")
+    @Test fun validatesEmptyAndAcceptsIdentifiersWithoutAuthenticating() {
+        compose.onNodeWithText("Rotas").assertDoesNotExist()
+        click("Entrar no RotaLog")
+        compose.onNodeWithText("Informe seu identificador, matrícula ou telefone.").assertExists()
+        for (identifier in listOf("DRV-9082", "9082", "(92) 99999-9999")) {
+            compose.onNodeWithTag("login-identifier").performScrollTo().performTextReplacement(identifier)
+            compose.onNodeWithText("Informe seu identificador, matrícula ou telefone.").assertDoesNotExist()
+            compose.onNodeWithTag("login-identifier").performImeAction()
+            compose.onNodeWithText(unavailable).assertExists()
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+            compose.onNodeWithText("Rotas").assertDoesNotExist()
+        }
+    }
+
+    @Test fun recreationRestoresIdentifierAndSeparateDemoEntry() {
+        compose.onNodeWithTag("login-identifier").performScrollTo().performTextInput("DRV-9082")
         closeSoftKeyboard()
-        compose.onNodeWithTag("login-password").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
-        assertRenderedPassword("•".repeat(7))
-        compose.onNodeWithContentDescription("Mostrar senha").performScrollTo().performClick()
-        assertRenderedPassword("segredo")
-        compose.onNodeWithContentDescription("Ocultar senha").performClick()
-        assertRenderedPassword("•".repeat(7))
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithTag("login-email").assertTextContains("entregador@exemplo.com")
-        compose.onNodeWithTag("login-password").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
-        compose.onNodeWithContentDescription("Mostrar senha").performScrollTo().performClick()
-        compose.onNodeWithTag("login-password").assertTextContains("segredo")
-    }
-
-    @Test fun recoveryIsHonestAndDemoRequiresSeparateAction() {
-        click("Esqueci minha senha")
-        compose.onNodeWithText("A recuperação de senha ainda não está conectada. Solicite ajuda à sua operação.").assertExists()
+        compose.onNodeWithTag("login-identifier").performScrollTo().assertTextContains("DRV-9082")
         compose.onNodeWithText("Rotas").assertDoesNotExist()
         click("Explorar demonstração")
         compose.onNode(hasText("Rotas") and hasClickAction()).assertExists()
         compose.activityRule.scenario.recreate()
         compose.onNode(hasText("Rotas") and hasClickAction()).assertExists()
     }
-    @Test fun reviewLoginInBothThemesWithKeyboardAndErrors() {
+
+    @Test fun reviewBothThemesWithKeyboardErrorsAndLastControl() {
         val settings = (compose.activity.application as RotalogApplication).container.settings
         for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
             runBlocking { settings.setTheme(theme) }
-            compose.waitForIdle()
-            compose.onNodeWithText("Entrar na sua conta").performScrollTo().assertIsDisplayed()
-            captureScrollPages(compose, "${theme.name}-login")
-            compose.onNodeWithTag("login-email").performScrollTo().performTextReplacement("nome@exemplo.com")
-            compose.onNodeWithTag("login-password").performScrollTo().performTextInput("segredo")
-            capture("${theme.name}-keyboard")
-            compose.onNodeWithTag("login-password").performImeAction()
-            compose.onNodeWithText("Autenticação indisponível nesta versão. Nenhum dado foi enviado.").performScrollTo().assertIsDisplayed()
-            capture("${theme.name}-unavailable")
-            compose.onNodeWithTag("login-email").performScrollTo().performTextClearance()
-            compose.onNodeWithTag("login-password").performScrollTo().performTextClearance()
+            compose.onNodeWithTag("login-identifier").performScrollTo().performTextReplacement("DRV-9082")
+            compose.onNodeWithTag("login-identifier").performTextClearance()
             closeSoftKeyboard()
-            click("Entrar")
-            compose.onNodeWithText("Informe um e-mail válido.").performScrollTo().assertIsDisplayed()
-            capture("${theme.name}-validation")
+            compose.activityRule.scenario.recreate()
+            compose.waitForIdle()
+            // Allow the Android window to present the selected theme before screenshots.
+            android.os.SystemClock.sleep(500)
+            compose.onNodeWithText("Acesso do motorista").performScrollTo().assertIsDisplayed()
+            captureScrollPages(compose, "${theme.name}-driver-access")
+            compose.onNodeWithTag("login-identifier").performScrollTo().performTextReplacement("DRV-9082")
+            captureFrame(compose, "${theme.name}-driver-keyboard")
+            compose.onNodeWithTag("login-identifier").performImeAction()
+            compose.onNodeWithText(unavailable).performScrollTo().assertIsDisplayed()
+            captureFrame(compose, "${theme.name}-driver-unavailable")
+            compose.onNodeWithTag("login-identifier").performScrollTo().performTextClearance()
+            closeSoftKeyboard()
+            click("Entrar no RotaLog")
+            compose.onNodeWithText("Informe seu identificador, matrícula ou telefone.").performScrollTo().assertIsDisplayed()
+            captureFrame(compose, "${theme.name}-driver-validation")
+            compose.onNodeWithText("Explorar demonstração").performScrollTo().assertIsDisplayed()
         }
     }
-
-    private fun capture(name: String) {
-        compose.waitForIdle()
-        SystemClock.sleep(300)
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val context = instrumentation.targetContext
-        val scale = (context.resources.configuration.fontScale * 100).toInt()
-        val values = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, "$name-$scale.png")
-            put(MediaStore.Downloads.MIME_TYPE, "image/png")
-            put(MediaStore.Downloads.RELATIVE_PATH, "Download/RotaLogUnifiedReview")
-        }
-        val uri = checkNotNull(context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
-        val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        checkNotNull(context.contentResolver.openOutputStream(uri)).use {
-            screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)
-        }
-        screenshot.recycle()
-    }
-
 }

@@ -14,7 +14,7 @@ import com.rotalog.delivery.model.Route
 
 /** Mapa do percurso, para telas que não têm bottom sheet. */
 @Composable
-fun MapaPercurso(
+fun MapCourse(
     routeMap: RouteMap,
     route: Route,
     modifier: Modifier = Modifier,
